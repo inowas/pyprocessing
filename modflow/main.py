@@ -44,11 +44,12 @@ sample_data = {"model_id": "671fc907-a0e4-4fff-a960-ca125273e2bc",
                "time_steps_of_interest": [10, 20],
                "layer_of_interest": 1,
                "operation": "mean",
-               "base_url": "http://app.dev.inowas.com"}
-#request_data = sample_data
+               "base_url": "http://app.dev.inowas.com",
+               "strt_head_mode": "warmed_up"}
+request_data = sample_data
 
 working_directory = '../data/modflow/'
-request_data = demjson.decode(str(sys.argv[1]))
+#request_data = demjson.decode(str(sys.argv[1]))
 ##########################################################################
 
 def create_and_run(workspace, data):

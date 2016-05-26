@@ -18,6 +18,8 @@ class Model(object):
     """
     Model class
     """
+    strt_head_mode = 'warmed_up'
+    
     def __init__(self):
         pass
     def setFromJson(self, request_data):
@@ -36,7 +38,10 @@ class Model(object):
         self.soil_model = Soil_model(self.jsonData['soil_model'], self.base_url)
         self.calculation_properties = Calculation_properties(self.jsonData['calculation_properties'])        
         self.boundaries = [Boundary(i, self.base_url) for i in self.jsonData['boundaries']] if len(self.jsonData['boundaries']) > 0 else None
-
+        
+        if 'strt_head_mode' in request_data:
+            self.strt_head_mode = request_data['strt_head_mode']
+            
     def set_properties(self, nx, ny):
         """
         Calculating properties of the model objects into Flopy input format
@@ -53,11 +58,7 @@ class Model(object):
                                          
         self.layers_properties = {}
         for i, prop in enumerate(self.soil_model.geological_layers[0].properties):
-            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].value 
-                                                    for layer in self.soil_model.geological_layers]
-
-        self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
-        
+            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].value for layer in self.soil_model.geological_layers]
     
         self.SPD_list = [line_boundary_interpolation.give_SPD(points = boundary.points_xy,
                                                               point_vals = boundary.points_values,
@@ -71,9 +72,17 @@ class Model(object):
                                                               ymax = self.area.ymax,
                                                               nx = nx,
                                                               ny = ny,
-                                                              layers_botm = self.layers_properties['eb']) 
+                                                              layers_botm = self.layers_properties['eb'],
+                                                              strt_head_mode = self.strt_head_mode) 
                                                               for boundary in self.boundaries]
-        
+        self.NPER = len(self.SPD_list[0])
+        if self.strt_head_mode == 'simple':
+            self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
+            self.STEADY = False
+        elif self.strt_head_mode == 'warmed_up':
+            self.STEADY = [True] + [False for i in range(self.NPER - 1)]
+            self.PERLEN = [100] + [i.length for i in self.calculation_properties.stress_periods]
+
     def run_model(self, workspace):
 
         # Write flopy input datasets
@@ -88,15 +97,12 @@ class Model(object):
         VANI = self.layers_properties['va']
         DELR = (self.area.ymax - self.area.ymin) / np.shape(self.IBOUND)[1]
         DELC = (self.area.xmax - self.area.xmin) / np.shape(self.IBOUND)[2]
-        NPER = len(self.SPD_list[0])
-        NSTP = PERLEN = self.PERLEN
-    #    STRT = m.initial_head
         
         MF = flopy.modflow.Modflow(self.id, exe_name='mf2005', version='mf2005', model_ws=workspace)
         DIS_PACKAGE = flopy.modflow.ModflowDis(MF, nlay=NLAY, nrow=NROW, ncol=NCOL, 
                                                delr=DELR, botm=BOT, delc=DELC,top=TOP, 
-                                               laycbd=0, steady=False, nper = NPER, 
-                                               nstp = NSTP, perlen = PERLEN)
+                                               laycbd=0, steady=self.STEADY, nper = self.NPER,
+                                               nstp = self.PERLEN, perlen = self.PERLEN)
         BAS_PACKAGE = flopy.modflow.ModflowBas(MF, ibound=self.IBOUND, strt=TOP, hnoflo = -9999, stoper = 1.)
         OC_PACKAGE = flopy.modflow.ModflowOc(MF)
         LPF_PACKAGE = flopy.modflow.ModflowLpf(MF, hk=HK, laytyp = 1)
