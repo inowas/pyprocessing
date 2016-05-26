@@ -20,18 +20,22 @@ class Model(object):
     """
     def __init__(self):
         pass
-    def setFromJson(self, jsonData):
+    def setFromJson(self, request_data):
         """
         Function to get model's data and create respective model objects
         """
-        self.id = str(jsonData['id'])
-        self.owner_id = str(jsonData['owner']['id'])
-        self.describtion = str(jsonData['description'])
-        self.name = str(jsonData['name'])
-        self.area = Area(jsonData['area'])
-        self.soil_model = Soil_model(jsonData['soil_model'])
-        self.calculation_properties = Calculation_properties(jsonData['calculation_properties'])        
-        self.boundaries = [Boundary(i) for i in jsonData['boundaries']] if len(jsonData['boundaries']) > 0 else None
+        self.base_url = request_data["base_url"]
+        responce = urlopen(self.base_url + '/api/models/' + request_data['model_id'] + '.json').read()      
+        self.jsonData = json.loads(responce)
+        
+        self.id = str(self.jsonData['id'])
+        self.owner_id = str(self.jsonData['owner']['id'])
+        self.describtion = str(self.jsonData['description'])
+        self.name = str(self.jsonData['name'])
+        self.area = Area(self.jsonData['area'])
+        self.soil_model = Soil_model(self.jsonData['soil_model'], self.base_url)
+        self.calculation_properties = Calculation_properties(self.jsonData['calculation_properties'])        
+        self.boundaries = [Boundary(i, self.base_url) for i in self.jsonData['boundaries']] if len(self.jsonData['boundaries']) > 0 else None
 
     def set_properties(self, nx, ny):
         """
@@ -165,20 +169,22 @@ class Soil_model(object):
     """
     Soil model class. ---> Model.soil_model
     """
-    def __init__(self, jsonDataSoil):
+    def __init__(self, jsonDataSoil, base_url):
         self.id = str(jsonDataSoil['id'])
-        layers_unsorted = [Geological_layer(i) for i in jsonDataSoil['geological_layers']] if len(jsonDataSoil['geological_layers']) > 0 else None
+        layers_unsorted = [Geological_layer(i, base_url) for i in jsonDataSoil['geological_layers']] if len(jsonDataSoil['geological_layers']) > 0 else None
         self.geological_layers = sorted(layers_unsorted, key = methodcaller('avg_top_elev'), reverse = True)
         
 class Geological_layer(object):
     """
     Geological layer class. ---> Soil_model.geological_layers
     """
-    def __init__(self, jsonDataLayer):
+    def __init__(self, jsonDataLayer, base_url):
+        
         self.id = str(jsonDataLayer['id'])
         # Set data
-        url = 'http://app.dev.inowas.com/api/geologicallayers/'+self.id+'.json'
+        url = base_url + '/api/geologicallayers/'+self.id+'.json'
         responce = urlopen(url).read()
+
         jsonData = json.loads(responce)
         self.properties = [Property(i) for i in jsonData['properties']] if len(jsonData['properties']) > 0 else None
         self.top = [i.values[0].value for i in self.properties if i.property_type_abr == 'et']
@@ -193,10 +199,10 @@ class Boundary(object):
     """
     Boundary class. ---> Model.boundaries
     """
-    def __init__(self, jsonDataBoundary):
+    def __init__(self, jsonDataBoundary, base_url):
         self.id = str(jsonDataBoundary['id'])
         # Set data
-        url = 'http://app.dev.inowas.com/api/boundaries/'+self.id+'.json'
+        url = base_url + '/api/boundaries/'+self.id+'.json'
         responce = urlopen(url).read()
         jsonData = json.loads(responce)
         

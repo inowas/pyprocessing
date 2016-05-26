@@ -44,18 +44,18 @@ sample_data = {"model_id": "671fc907-a0e4-4fff-a960-ca125273e2bc",
                "time_steps_of_interest": [10, 20],
                "layer_of_interest": 1,
                "operation": "mean",
-               "base_url": "http://api.dev.inowas.com"}
+               "base_url": "http://app.dev.inowas.com"}
 #request_data = sample_data
 
 working_directory = '../data/modflow/'
 request_data = demjson.decode(str(sys.argv[1]))
 ##########################################################################
 
-def create_and_run(workspace, data, nx, ny):
+def create_and_run(workspace, data):
     try:    
         m = model.Model()
         m.setFromJson(data)
-        m.set_properties(nx,ny)
+        m.set_properties(data['nx'],data['ny'])
         m.run_model(workspace)
     except:
         print "Unexpected error:", sys.exc_info()[0]
@@ -93,8 +93,7 @@ def read_output(workspace, name, timesteps, layer, operation):
         print 'raster produced'
 
 #######################################################################################################
-responce = urlopen(request_data["base_url"]+'/api/models/' + request_data['model_id'] + '.json').read()
-jsonData = json.loads(responce)
+
 responce_raster = ""
 
 # modflow workspace
@@ -108,7 +107,7 @@ if not os.path.exists(workspace):
         quit()
 
 if request_data['calculate']: 
-    create_and_run(workspace, jsonData, request_data['nx'], request_data['ny'])
+    create_and_run(workspace, request_data)
 
 if request_data['give_raster']:
     responce_raster = read_output(workspace, request_data['model_id'],
