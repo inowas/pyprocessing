@@ -43,7 +43,8 @@ sample_data = {"model_id": "671fc907-a0e4-4fff-a960-ca125273e2bc",
                "give_raster": True,
                "time_steps_of_interest": [10, 20],
                "layer_of_interest": 1,
-               "operation": "mean"}
+               "operation": "mean",
+               "base_url": "http://api.dev.inowas.com"}
 #request_data = sample_data
 
 working_directory = '../data/modflow/'
@@ -92,7 +93,7 @@ def read_output(workspace, name, timesteps, layer, operation):
         print 'raster produced'
 
 #######################################################################################################
-responce = urlopen('http://app.dev.inowas.com/api/models/' + request_data['model_id'] + '.json').read()
+responce = urlopen(request_data["base_url"]+'/api/models/' + request_data['model_id'] + '.json').read()
 jsonData = json.loads(responce)
 responce_raster = ""
 
