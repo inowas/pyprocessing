@@ -1,6 +1,7 @@
 #! /usr/env python
 
 from pyKriging.krige import kriging
+from sklearn.gaussian_process import GaussianProcess
 import demjson
 import numpy as np
 
@@ -83,6 +84,8 @@ class Interpolation:
             self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
         if self._method == 'mean':
             self._output = self.mean(self._nX, self._nY, self._Y)
+        if self._method == 'gaussian':
+            self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
         else:
             print('method %s is not supported' % self._method)
 
@@ -91,9 +94,7 @@ class Interpolation:
 
     @staticmethod
     def render(method, output):
-        if method == 'kriging':
-            print(demjson.encode({"raster": output}))
-        elif method == 'mean':
+        if method == 'kriging' or method == 'mean' or method == 'gaussian':
             print(demjson.encode({"raster": output}))
         elif method == 'error':
             print(demjson.encode({"error": output}))
@@ -127,7 +128,7 @@ class Interpolation:
         The scikit learn python library should be installed
         Should be tested
         """
-        from sklearn.gaussian_process import GaussianProcess
+
         # Prediction is very sensetive to the parameters below, method to be used carefully!
         gp = GaussianProcess(regr = 'quadratic',corr='cubic',theta0=0.1, thetaL=.001, thetaU=1., nugget=0.01)
         gp.fit(X, y)
