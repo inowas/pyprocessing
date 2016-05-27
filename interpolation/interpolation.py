@@ -117,3 +117,24 @@ class Interpolation:
         mean_value = np.mean(values)
         grid = mean_value * np.ones((ny, nx))
         return grid
+        
+    @staticmethod
+    def gaussian_process(nx, ny, X, y, x_min, y_min, dx, dy):
+        """
+        Gausian process method. To replace kriging.
+        Description:
+        http://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.GaussianProcess.html#sklearn.gaussian_process.GaussianProcess.predict
+        The scikit learn python library should be installed
+        Should be tested
+        """
+        from sklearn.gaussian_process import GaussianProcess
+        # Prediction is very sensetive to the parameters below, method to be used carefully!
+        gp = GaussianProcess(regr = 'quadratic',corr='cubic',theta0=0.1, thetaL=.001, thetaU=1., nugget=0.01)
+        gp.fit(X, y)
+        X_grid_x = np.linspace(x_min, x_min+dx*nx, nx)
+        X_grid_y = np.linspace(y_min, y_min+dy*ny, ny)
+        xv, yv = np.meshgrid(X_grid_x, X_grid_y)
+        
+        X_grid = np.dstack(( xv.flatten(), yv.flatten()))[0]
+        grid = np.reshape(gp.predict(X_grid, eval_MSE=False, batch_size=None), (nx, ny))
+        return grid
