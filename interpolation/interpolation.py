@@ -74,7 +74,7 @@ class Interpolation:
 
         for point in self._points:
             if 'x' in point and 'y' in point:
-                self._X.append([point['y'], point['x']])
+                self._X.append([point['x'], point['y']])
 
             if 'value' in point:
                 self._Y.append(point['value'])
