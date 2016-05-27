@@ -82,24 +82,24 @@ class Interpolation:
     def calculate(self):
         if self._method == 'kriging':
             self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
-        if self._method == 'mean':
+        elif self._method == 'mean':
             self._output = self.mean(self._nX, self._nY, self._Y)
-        if self._method == 'gaussian':
+        elif self._method == 'gaussian':
             self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
         else:
-            print('method %s is not supported' % self._method)
+            print('{"error": "method %s is not supported."}' % self._method)
 
     def render_output(self):
         self.render(self._method, self._output)
 
     @staticmethod
     def render(method, output):
-        if method == 'kriging' or method == 'mean' or method == 'gaussian':
+        if (method == 'kriging') or (method == 'mean') or (method == 'gaussian'):
             print(demjson.encode({"raster": output}))
         elif method == 'error':
             print(demjson.encode({"error": output}))
         else:
-            print('{"error": "method %s is not supported"}' % method)
+            print('{"error": "method %s is not supported."}' % method)
 
     @staticmethod
     def kriging(nx, ny, x, y, x_min, y_min, dx, dy):
