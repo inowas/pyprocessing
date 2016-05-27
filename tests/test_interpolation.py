@@ -65,5 +65,10 @@ class InterpolationTests(unittest.TestCase):
         self.assertEqual(50, len(self._interpolation._output[0]))
         self.assertEqual(-69.74122222222222, float(self._interpolation._output[20][20]))
 
+    def test_render_mean(self):
+        self._interpolation.from_file('./testfiles/valid_mean.json')
+        self._interpolation.calculate()
+        self.assertEqual("", self._interpolation.render_output())
+
 if __name__ == '__main__':
     unittest.main()

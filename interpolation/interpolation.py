@@ -78,9 +78,6 @@ class Interpolation:
             if 'value' in point:
                 self._Y.append(point['value'])
 
-        print self._X
-        print self._Y
-
     def calculate(self):
         if self._method == 'kriging':
             self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
@@ -95,6 +92,8 @@ class Interpolation:
     @staticmethod
     def render(method, output):
         if method == 'kriging':
+            print(demjson.encode({"raster": output}))
+        elif method == 'mean':
             print(demjson.encode({"raster": output}))
         elif method == 'error':
             print(demjson.encode({"error": output}))
