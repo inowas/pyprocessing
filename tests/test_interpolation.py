@@ -4,6 +4,7 @@ import unittest
 from demjson import JSONDecodeError
 from interpolation.interpolation import Interpolation
 
+
 class InterpolationTests(unittest.TestCase):
 
     _interpolation = None
@@ -56,6 +57,13 @@ class InterpolationTests(unittest.TestCase):
         self._interpolation.calculate()
         self.assertEqual(13, len(self._interpolation._output))
         self.assertEqual(12, len(self._interpolation._output[0]))
+
+    def test_mean(self):
+        self._interpolation.from_file('./testfiles/valid_mean.json')
+        self._interpolation.calculate()
+        self.assertEqual(60, len(self._interpolation._output))
+        self.assertEqual(50, len(self._interpolation._output[0]))
+        self.assertEqual(-69.74122222222222, float(self._interpolation._output[20][20]))
 
 if __name__ == '__main__':
     unittest.main()

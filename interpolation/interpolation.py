@@ -78,9 +78,14 @@ class Interpolation:
             if 'value' in point:
                 self._Y.append(point['value'])
 
+        print self._X
+        print self._Y
+
     def calculate(self):
         if self._method == 'kriging':
             self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
+        if self._method == 'mean':
+            self._output = self.mean(self._nX, self._nY, self._Y)
         else:
             print('method %s is not supported' % self._method)
 
@@ -106,4 +111,10 @@ class Interpolation:
             for j in range(nx):
                 cell = np.array([y_min + dy * j + .5 * dy, x_min + dx * i + .5 * dx])
                 grid[i][j] = k.predict(cell)
+        return grid
+
+    @staticmethod
+    def mean(nx, ny, values):
+        mean_value = np.mean(values)
+        grid = mean_value * np.ones((ny, nx))
         return grid
