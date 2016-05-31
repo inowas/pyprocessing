@@ -104,10 +104,9 @@ class Interpolation:
                 else:
                     self._error = True
                     self._error_message = 'Method %s is not supported' % self._method
-            except Exception:
+            except:
                 self._error = True
                 self._error_message = 'Exception raised in calculation of method %s' % self._method
-                return
 
     def render_output(self, output_file=''):
         if self._error:

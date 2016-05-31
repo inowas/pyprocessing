@@ -59,7 +59,7 @@ class InterpolationTests(unittest.TestCase):
             sys.stdout = out
             self._interpolation.render_output()
             output = out.getvalue().strip()
-            self.assertEqual("{'error': 'No value to decode'}", output)
+            self.assertEqual("{'error': 'Something went wrong with the json decoding'}", output)
         finally:
             sys.stdout = saved_stdout
 
