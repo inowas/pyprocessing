@@ -126,10 +126,17 @@ class Interpolation:
                 self._error = True
                 self._error_message = str(exc)
                 self.render_error()
+                return
+
+            self.render_success()
+
+    def render_success(self):
+        result = {"success": self._method}
+        print demjson.encode(result)
 
     def render_error(self):
         result = {"error": self._error_message}
-        print result
+        demjson.encode(result)
 
     @staticmethod
     def render(method, output):
