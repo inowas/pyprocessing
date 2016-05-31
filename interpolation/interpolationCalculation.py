@@ -3,9 +3,13 @@
 import sys
 from interpolation import Interpolation
 
-fileName = sys.argv[1]
+input_file_name = sys.argv[1]
+output_file_name = ''
+
+if sys.argv[2]:
+    output_file_name = sys.argv[1]
 
 ip = Interpolation()
-ip.from_file(fileName)
+ip.from_file(input_file_name)
 ip.calculate()
-ip.render_output()
+ip.render_output(output_file_name)

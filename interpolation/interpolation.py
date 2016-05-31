@@ -21,23 +21,36 @@ class Interpolation:
     _X = []
     _Y = []
     _points = []
-    _output = None
+    _output = ""
     _json_output = ""
+    _error = False
+    _error_message = ""
 
     def __init__(self):
         pass
 
-    def from_file(self, filename):
+    def from_file(self, input_file):
         try:
-            _file = open(filename, 'r')
+            _file = open(input_file, 'r')
             json_input = _file.read()
         except IOError as exc:
-            raise Exception(str(exc))
+            self._error = True
+            self._error_message = str(exc)
+            return
+        except Exception as exc:
+            self._error = True
+            self._error_message = str(exc)
+            return
 
         self.decode_json(json_input)
 
     def decode_json(self, json_input):
-        json_dict = demjson.decode(json_input)
+        try:
+            json_dict = demjson.decode(json_input)
+        except Exception as exc:
+            self._error = True
+            self._error_message = "Something went wrong with the json decoding"
+            return
 
         if 'type' in json_dict:
             self._method = json_dict['type']
@@ -80,26 +93,45 @@ class Interpolation:
                 self._Y.append(point['value'])
 
     def calculate(self):
-        if self._method == 'kriging':
-            self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
-        elif self._method == 'mean':
-            self._output = self.mean(self._nX, self._nY, self._Y)
-        elif self._method == 'gaussian':
-            self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
-        else:
-            print('{"error": "method %s is not supported."}' % self._method)
+        if not self._error:
+            if self._method == 'kriging':
+                self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
+            elif self._method == 'mean':
+                self._output = self.mean(self._nX, self._nY, self._Y)
+            elif self._method == 'gaussian':
+                self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
+            else:
+                self._error = True
+                self._error_message = 'Method %s is not supported' % self._method
 
-    def render_output(self):
-        self.render(self._method, self._output)
+    def render_output(self, output_file=''):
+        if self._error:
+            self.render_error()
+            return
+
+        output = self.render(self._method, self._output)
+        if output_file == '':
+            print output
+        else:
+            try:
+                output_file = open(output_file, 'w')
+                output_file.truncate()
+                output_file.write(output)
+                output_file.close()
+            except IOError as exc:
+                self._error = True
+                self._error_message = str(exc)
+                self.render_error()
+
+    def render_error(self):
+        result = {"error": self._error_message}
+        print result
 
     @staticmethod
     def render(method, output):
         if (method == 'kriging') or (method == 'mean') or (method == 'gaussian'):
-            print(demjson.encode({"raster": output}))
-        elif method == 'error':
-            print(demjson.encode({"error": output}))
-        else:
-            print('{"error": "method %s is not supported."}' % method)
+            result = {"raster": output}
+            return demjson.encode(result)
 
     @staticmethod
     def kriging(nx, ny, x, y, x_min, y_min, dx, dy):
@@ -139,7 +171,8 @@ class Interpolation:
         X_grid = np.dstack(( xv.flatten(), yv.flatten()))[0]
         grid = np.reshape(gp.predict(X_grid, eval_MSE=False, batch_size=None), (ny, nx))
         return grid
-        
+
+    @staticmethod
     def inverse_distance_weighting(nx, ny, X, y, x_min, y_min, dx, dy, self):
         """
         Inverse-distance weighting interpolation method
@@ -150,10 +183,11 @@ class Interpolation:
         grid = np.zeros((ny,nx))
         for i in range(nx):
             for j in range(ny):  
-                grid[j][i] = self.pointValue((x_min + dx/2)+dx*i,(y_min + dy/2)+dy*j,power,smoothing,xv,yv,y)  
-        return grid       
-        
-    def pointValue(x,y,power,smoothing,xv,yv,values):
+                grid[j][i] = self.pointValue((x_min + dx/2)+dx*i, (y_min + dy/2)+dy*j, power, smoothing, xv, yv, y)
+        return grid
+
+    @staticmethod
+    def pointValue(x, y, power, smoothing, xv, yv, values):
         """ This function is used inside the inverse_distance_weighting method. """
         from math import pow  
         from math import sqrt
