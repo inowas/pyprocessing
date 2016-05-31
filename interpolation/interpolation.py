@@ -44,6 +44,9 @@ class Interpolation:
 
         self.decode_json(json_input)
 
+    def from_string(self, json_input):
+        self.decode_json(json_input)
+
     def decode_json(self, json_input):
         try:
             json_dict = demjson.decode(json_input)
@@ -136,12 +139,12 @@ class Interpolation:
 
     def render_error(self):
         result = {"error": self._error_message}
-        demjson.encode(result)
+        print demjson.encode(result)
 
     @staticmethod
     def render(method, output):
         if (method == 'kriging') or (method == 'mean') or (method == 'gaussian'):
-            result = {"raster": output}
+            result = {"raster": output, "method": method}
             return demjson.encode(result)
 
     @staticmethod
@@ -173,7 +176,7 @@ class Interpolation:
         """
 
         # Prediction is very sensetive to the parameters below, method to be used carefully!
-        gp = GaussianProcess(regr = 'quadratic',corr='cubic',theta0=0.1, thetaL=.001, thetaU=1., nugget=0.01)
+        gp = GaussianProcess(regr='quadratic', corr='cubic', theta0=0.1, thetaL=.001, thetaU=1., nugget=0.01)
         gp.fit(X, y)
         X_grid_x = np.linspace(x_min, x_min+dx*nx, nx)
         X_grid_y = np.linspace(y_min, y_min+dy*ny, ny)

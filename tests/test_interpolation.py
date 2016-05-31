@@ -87,6 +87,11 @@ class InterpolationTests(unittest.TestCase):
         self.assertEqual(50, len(self._interpolation._output))
         self.assertEqual(50, len(self._interpolation._output[0]))
 
+    def test_with_two_points(self):
+        self._interpolation.from_string(json_input='{"bounding_box":{"x_min":0,"x_max":10,"y_min":0,"y_max":10},"grid_size":{"n_x":10,"n_y":11},"point_values":[{"x":1,"y":5,"value":800},{"x":2,"y":8,"value":3}],"type":"gaussian"}')
+        self._interpolation.calculate()
+        self.assertEqual('Exception raised in calculation of method gaussian', self._interpolation._error_message)
+
     def test_render_to_stdout(self):
         self._interpolation.from_file('./testfiles/valid_mean.json')
         self._interpolation.calculate()
