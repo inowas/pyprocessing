@@ -94,15 +94,20 @@ class Interpolation:
 
     def calculate(self):
         if not self._error:
-            if self._method == 'kriging':
-                self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
-            elif self._method == 'mean':
-                self._output = self.mean(self._nX, self._nY, self._Y)
-            elif self._method == 'gaussian':
-                self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
-            else:
+            try:
+                if self._method == 'kriging':
+                    self._output = self.kriging(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
+                elif self._method == 'mean':
+                    self._output = self.mean(self._nX, self._nY, self._Y)
+                elif self._method == 'gaussian':
+                    self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
+                else:
+                    self._error = True
+                    self._error_message = 'Method %s is not supported' % self._method
+            except Exception:
                 self._error = True
-                self._error_message = 'Method %s is not supported' % self._method
+                self._error_message = 'Exception raised in calculation of method %s' % self._method
+                return
 
     def render_output(self, output_file=''):
         if self._error:
