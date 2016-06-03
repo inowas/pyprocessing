@@ -29,7 +29,7 @@ class Model(object):
         self.base_url = request_data["base_url"]
         responce = urlopen(self.base_url + '/api/models/' + request_data['model_id'] + '.json').read()      
         self.jsonData = json.loads(responce)
-        
+#        print self.jsonData
         self.id = str(self.jsonData['id'])
         self.owner_id = str(self.jsonData['owner']['id'])
         self.describtion = str(self.jsonData['description'])
@@ -38,6 +38,7 @@ class Model(object):
         self.soil_model = Soil_model(self.jsonData['soil_model'], self.base_url)
         self.calculation_properties = Calculation_properties(self.jsonData['calculation_properties'])        
         self.boundaries = [Boundary(i, self.base_url) for i in self.jsonData['boundaries']] if len(self.jsonData['boundaries']) > 0 else None
+            
         
         if 'strt_head_mode' in request_data:
             self.strt_head_mode = request_data['strt_head_mode']
@@ -58,7 +59,7 @@ class Model(object):
                                          
         self.layers_properties = {}
         for i, prop in enumerate(self.soil_model.geological_layers[0].properties):
-            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].value for layer in self.soil_model.geological_layers]
+            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data for layer in self.soil_model.geological_layers]
     
         self.SPD_list = [line_boundary_interpolation.give_SPD(points = boundary.points_xy,
                                                               point_vals = boundary.points_values,
@@ -90,11 +91,12 @@ class Model(object):
         NROW = np.shape(self.IBOUND)[1]
         NCOL = np.shape(self.IBOUND)[2]
         CHD_SPD = self.SPD_list[0]
-        TOP = self.layers_properties['et'][0]
-        BOT = self.layers_properties['eb']
-        HK = self.layers_properties['hc']
-        HANI = self.layers_properties['ha']
-        VANI = self.layers_properties['va']
+        TOP = self.layers_properties['et'][0] if 'et' in self.layers_properties else None
+        BOT = self.layers_properties['eb'] if 'eb' in self.layers_properties else None
+                
+        HK = self.layers_properties['hc'] if 'hc' in self.layers_properties else None
+        HANI = self.layers_properties['ha'] if 'ha' in self.layers_properties else None
+        VANI = self.layers_properties['va'] if 'va' in self.layers_properties else None
         DELR = (self.area.ymax - self.area.ymin) / np.shape(self.IBOUND)[1]
         DELC = (self.area.xmax - self.area.xmin) / np.shape(self.IBOUND)[2]
         
@@ -103,7 +105,8 @@ class Model(object):
                                                delr=DELR, botm=BOT, delc=DELC,top=TOP, 
                                                laycbd=0, steady=self.STEADY, nper = self.NPER,
                                                nstp = self.PERLEN, perlen = self.PERLEN)
-        BAS_PACKAGE = flopy.modflow.ModflowBas(MF, ibound=self.IBOUND, strt=TOP, hnoflo = -9999, stoper = 1.)
+#        print len(TOP), len(TOP[0]), len(TOP[1])
+        BAS_PACKAGE = flopy.modflow.ModflowBas(MF, ibound=self.IBOUND, strt=np.min(np.array(TOP)), hnoflo = -9999, stoper = 1.)
         OC_PACKAGE = flopy.modflow.ModflowOc(MF)
         LPF_PACKAGE = flopy.modflow.ModflowLpf(MF, hk=HK, laytyp = 1)
         PCG_PACKAGE = flopy.modflow.ModflowPcg(MF, mxiter=900, iter1=900)
@@ -111,7 +114,25 @@ class Model(object):
         
         # Write Modflow input files and run the model    
         MF.write_input()
+        MF.plot()
         MF.run_model()
+        
+    def create_phantomes(self, phantome_wells):
+        # Stuff for optimization comes here
+        self.phantom_wells = [Phantome_well[i] for i in phantome_wells]
+        self.phantome_SPD = {}
+        
+class Phantome_well(object):
+    def __init__(self):
+        self.x
+        self.y
+        self.row
+        self.column
+        self.layer
+        self.rate
+    def give_SPD_singe(self):
+        return [self.layer, self.row, self.column, self.rate]
+            
             
 
 class Calculation_properties(object):
@@ -170,7 +191,6 @@ class Stress_period(object):
         self.length = (self.dateTimeEnd - self.dateTimeBegin).days
 
 
-        
 class Soil_model(object):
     """
     Soil model class. ---> Model.soil_model
@@ -178,23 +198,21 @@ class Soil_model(object):
     def __init__(self, jsonDataSoil, base_url):
         self.id = str(jsonDataSoil['id'])
         layers_unsorted = [Geological_layer(i, base_url) for i in jsonDataSoil['geological_layers']] if len(jsonDataSoil['geological_layers']) > 0 else None
-        self.geological_layers = sorted(layers_unsorted, key = methodcaller('avg_top_elev'), reverse = True)
+        self.geological_layers = sorted(layers_unsorted, key = methodcaller('avg_top_elev'), reverse = True) if layers_unsorted is not None else None
         
 class Geological_layer(object):
     """
     Geological layer class. ---> Soil_model.geological_layers
     """
     def __init__(self, jsonDataLayer, base_url):
-        
         self.id = str(jsonDataLayer['id'])
         # Set data
-        url = base_url + '/api/geologicallayers/'+self.id+'.json'
+        url = base_url + '/api/geologicallayers/' + self.id + '.json'
         responce = urlopen(url).read()
-
         jsonData = json.loads(responce)
-        self.properties = [Property(i) for i in jsonData['properties']] if len(jsonData['properties']) > 0 else None
-        self.top = [i.values[0].value for i in self.properties if i.property_type_abr == 'et']
-        self.botm = [i.values[0].value for i in self.properties if i.property_type_abr == 'eb']
+        self.properties = [Property(i, base_url) for i in jsonData['properties']] if len(jsonData['properties']) > 0 else None
+        self.top = [i.values[0].data for i in self.properties if i.property_type_abr == 'et']
+        self.botm = [i.values[0].data for i in self.properties if i.property_type_abr == 'eb']
     def avg_top_elev(self):
         """
         Function returning mean layer elevation used to define order of the layers
@@ -213,7 +231,7 @@ class Boundary(object):
         jsonData = json.loads(responce)
         
         self.geometry = jsonData['geometry']
-        self.observation_points = [Observation_points(i) for i in jsonData['observation_points']] if len(jsonData['observation_points']) > 0 else None
+        self.observation_points = [Observation_points(i, base_url) for i in jsonData['observation_points']] if len(jsonData['observation_points']) > 0 else None
         points_id = []
         for point in self.geometry:
             try:
@@ -225,7 +243,7 @@ class Boundary(object):
         self.points_xy = []
         self.points_values = []
         for point in range(len(self.observation_points)):
-            self.points_values.append([i.value for i in self.observation_points[point].properties[0].values])
+            self.points_values.append([i.data for i in self.observation_points[point].properties[0].values])
             self.points_xy.append([self.observation_points[point].x, self.observation_points[point].y])
 
         self.interracted_layers_ids = [str(i['id']) for i in jsonData['geological_layers']]
@@ -234,10 +252,10 @@ class Observation_points(object):
     """
     Observation point class. ---> Boundary.observation_points
     """ 
-    def __init__(self, jsonDataObservationPoints):
+    def __init__(self, jsonDataObservationPoints, base_url):
 
         self.id = str(jsonDataObservationPoints['id'])
-        self.properties = [Property(i) for i in jsonDataObservationPoints['properties']] if len(jsonDataObservationPoints['properties']) > 0 else None
+        self.properties = [Property(i, base_url) for i in jsonDataObservationPoints['properties']] if len(jsonDataObservationPoints['properties']) > 0 else None
         self.x = float(jsonDataObservationPoints['point']['x'])
         self.y = float(jsonDataObservationPoints['point']['y'])
 
@@ -245,22 +263,35 @@ class Property(object):
     """
     
     """
-    def __init__(self, jsonDataProperty):
+    def __init__(self, jsonDataProperty, base_url):
         self.id = str(jsonDataProperty['id'])
-        self.name = str(jsonDataProperty['name'])
         self.property_type_abr = str(jsonDataProperty['property_type']['abbreviation'])
-        self.values = [Value(i) for i in jsonDataProperty['values']] if len(jsonDataProperty['values']) > 0 else None
+        self.values = [Value(i, base_url) for i in jsonDataProperty['values']] if len(jsonDataProperty['values']) > 0 else None
         
         
 class Value(object):
     """
     
     """
-    def __init__(self, jsonDataValue):
+    def __init__(self, jsonDataValue, base_url):
         if 'value' in jsonDataValue:
-            self.value = float(jsonDataValue['value'])
+            self.dataType = 'singleValue'
+            self.data = float(jsonDataValue['value'])
         elif 'raster' in jsonDataValue:
-            self.value = str(jsonDataValue['value'])
+            self.dataType = 'raster'
+            rasterID = str(jsonDataValue['raster']['id'])
+            url = base_url + '/api/rasters/' + rasterID + '.json'
+            responce = urlopen(url).read()
+            rasterInfo = json.loads(responce)
+            self.raster_nx = int(rasterInfo['grid_size']['n_x'])
+            self.raster_ny = int(rasterInfo['grid_size']['n_y'])
+            self.raster_xmin = float(rasterInfo['bounding_box']['x_min'])
+            self.raster_xmax = float(rasterInfo['bounding_box']['x_max'])
+            self.raster_ymin = float(rasterInfo['bounding_box']['y_min'])
+            self.raster_ymax = float(rasterInfo['bounding_box']['y_max'])
+            self.raster_srid = float(rasterInfo['bounding_box']['srid'])
+            self.raster_nodata = float(rasterInfo['no_data_val'])
+            self.data = rasterInfo['data']
         else:
             self.value = None
 

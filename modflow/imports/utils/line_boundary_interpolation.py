@@ -66,7 +66,7 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
     for idx, layer in enumerate(layers_botm):
         for period in stress_period_list:
             for i in range(len(line_cols)):
-                cell_botm_elevation = layer[line_rows[i], line_cols[i]] if type(layer) == list else layer
+                cell_botm_elevation = layer[line_rows[i]][line_cols[i]] if type(layer) == list else layer
                 if list_of_values[period][i] <= cell_botm_elevation:
                     del interract_layers[idx]
                     break
