@@ -69,6 +69,13 @@ class InterpolationTests(unittest.TestCase):
         finally:
             sys.stdout = saved_stdout
 
+    def test_idw_with_file(self):
+        interpolation = Interpolation()
+        interpolation.from_file('./testfiles/valid_idw.json')
+        interpolation.calculate()
+        self.assertEqual(60, len(interpolation._output))
+        self.assertEqual(50, len(interpolation._output[0]))
+
     def test_kriging(self):
         interpolation = Interpolation()
         interpolation.from_file('./testfiles/valid.json')
