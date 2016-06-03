@@ -104,7 +104,7 @@ class Interpolation:
                     self._output = self.mean(self._nX, self._nY, self._Y)
                 elif self._method == 'gaussian':
                     self._output = self.gaussian_process(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
-                elif self._method == 'IDW':
+                elif self._method == 'idw':
                     self._output = self.inverse_distance_weighting(self._nX, self._nY, self._X, self._Y, self._xMin, self._yMin, self._dX, self._dY)
                 else:
                     self._error = True
@@ -145,7 +145,7 @@ class Interpolation:
 
     @staticmethod
     def render(method, output):
-        if (method == 'kriging') or (method == 'mean') or (method == 'gaussian') or (method == 'IDW'):
+        if (method == 'kriging') or (method == 'mean') or (method == 'gaussian') or (method == 'idw'):
             result = {"raster": output, "method": method}
             return demjson.encode(result)
 
@@ -215,10 +215,11 @@ class Interpolation:
                 value = -9999
             return value
             
-        power,smoothing = 5, 0
+        power, smoothing = 5, 0
         xv = [i[0] for i in X]
         yv = [i[1] for i in X]    
-        grid = np.zeros((ny,nx))
+        grid = np.zeros((ny, nx))
+
         for i in range(nx):
             for j in range(ny):  
                 grid[j][i] = pointValue((x_min + dx/2)+dx*i, (y_min + dy/2)+dy*j, power, smoothing, xv, yv, y)
