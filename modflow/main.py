@@ -36,7 +36,7 @@ import flopy
 from imports import model
 
 # Sample input data #####################################################
-sample_data = {"model_id": "671fc907-a0e4-4fff-a960-ca125273e2bc",
+sample_data = {"model_id": "3aaac4bf-e0a8-451b-9ab6-2caaa1881706",
                "calculate": True,
                "nx": 50,
                "ny": 50,
