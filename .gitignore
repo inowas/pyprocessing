@@ -21,3 +21,15 @@ data/
 composer.lock
 *.pyc
 *.py~
+*.cbc
+*.bas
+*.ddn
+*.dis
+*.hds
+*.list
+*.nam
+*.oc
+*.lpf
+*.pcg
+*.rch
+*.wel
