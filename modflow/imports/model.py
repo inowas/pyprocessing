@@ -29,6 +29,7 @@ class Model(object):
         """
         Function to get model's data and create respective model objects
         """
+        self.request_data = request_data
         self.base_url = request_data["base_url"]
         responce = urlopen(self.base_url + '/api/models/' +
                            request_data['model_id'] + '.json').read()
@@ -134,8 +135,12 @@ class Model(object):
         PCG_PACKAGE = flopy.modflow.ModflowPcg(MF,
                                                mxiter=900,
                                                iter1=900)
-        CHD = flopy.modflow.ModflowChd(MF, stress_period_data=self.SPD_list[0])
-        WEL = flopy.modflow.ModflowWel(MF, stress_period_data=self.WELL_SPD)
+
+        if "CHD" in self.request_data["packages"]:
+            CHD = flopy.modflow.ModflowChd(MF,
+                                           stress_period_data=self.SPD_list[0])
+        if "WEL" in self.request_data["packages"]:
+            WEL = flopy.modflow.ModflowWel(MF, stress_period_data=self.WELL_SPD)
         # Write Modflow input files and run the model
         MF.write_input()
         MF.plot()

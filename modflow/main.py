@@ -48,7 +48,8 @@ sample_data = {"model_id": "94c48987-7d4f-46ac-9eb8-22e2d4a12d18",
                "layer_of_interest": 1,
                "operation": "mean",
                "base_url": "http://app.dev.inowas.com",
-               "strt_head_mode": "warmed_up"}
+               "strt_head_mode": "warmed_up",
+               "packages": ["CHD","WEL"]}
 request_data = sample_data
 
 working_directory = '../data/modflow/'
