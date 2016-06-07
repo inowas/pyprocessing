@@ -13,14 +13,14 @@ import intersector
 
 def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xmax, xmin, ymax, ymin, nx, ny, layers_botm = None, strt_head_mode = 'warmed_up'):
     """
-    Function interpolating given point values along on a grid along given line 
+    Function interpolating given point values along on a grid along given line
     and returning Stress Period Data dictionary object
     """
     strt_head_mode_options = ['warmed_up', 'simple']
     if strt_head_mode not in strt_head_mode_options:
         print 'given stress period data write mode option is not supported, should be either "warmed_up" or "simple"'
         return
-    
+
     # Definition of the cells intersected by a line boundary and by observation points
     line_cols, line_rows = intersector.line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny)
     point_cols, point_rows = [],[]
@@ -40,7 +40,7 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
                     list_of_values_single_timestep.append(point_vals[period][point_idx])
                 else:
                     list_of_values_single_timestep.append(None)
-        
+
         # Fill the None values with distance - weighted average of closest not-None cells
         for i in range(len(list_of_values_single_timestep)):
             if list_of_values_single_timestep[i] is None:
@@ -49,7 +49,7 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
                 k = list_of_values_single_timestep[i] # Backward value
                 m = list_of_values_single_timestep[i] # Forward value
                 while m is None:
-                    m = list_of_values_single_timestep[i - l] 
+                    m = list_of_values_single_timestep[i - l]
                     l += 1
                 while k is None:
                     k = list_of_values_single_timestep[i + j] if (i + j) < len(list_of_values_single_timestep) else list_of_values_single_timestep[(i + j - len(list_of_values_single_timestep))]
@@ -58,21 +58,19 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
                 list_of_values_single_timestep[i] = (m * 1./(l-1) + k * 1./(j-1))/(1./(j-1) + 1./(l-1))
         # Write resulting values lists for every time step
         list_of_values.append(list_of_values_single_timestep)
-    
+
     # Reversing rows upside down due to flopy error
     line_rows_reversed = [(ny-1) - i for i in line_rows]
-
     # Checking if the boundary cells will become dry due to low specified head. If so, layer removed from the interracted layers list
     for idx, layer in enumerate(layers_botm):
         for period in stress_period_list:
             for i in range(len(line_cols)):
-                cell_botm_elevation = layer[line_rows[i]][line_cols[i]] if type(layer) == list else layer
+                cell_botm_elevation = layer[line_rows_reversed[i]][line_cols[i]] if type(layer) == list else layer
                 if list_of_values[period][i] <= cell_botm_elevation:
                     del interract_layers[idx]
                     break
             break
 
-    
     # Writing CHD Stress Period Data dictionary
     if strt_head_mode == 'simple':
         CHD_stress_period_data = {}
@@ -86,7 +84,7 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
                     else:
                         SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period][i]])
                     CHD_stress_period_data[period] = SPD_single
-    
+
     elif strt_head_mode == 'warmed_up':
         CHD_stress_period_data = {}
         for period in stress_period_list:
@@ -101,5 +99,9 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
                     if len(CHD_stress_period_data) == 0:
                         CHD_stress_period_data[period] = SPD_single
                     CHD_stress_period_data[period + 1] = SPD_single
-                    
+
+    else:
+        print 'given strt_mode is not supported'
+        return
+
     return CHD_stress_period_data

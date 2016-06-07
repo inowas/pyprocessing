@@ -13,6 +13,7 @@ import flopy
 
 from imports.utils import ibound
 from imports.utils import line_boundary_interpolation
+from imports.utils import well_spd
 
 
 class Model(object):
@@ -29,9 +30,9 @@ class Model(object):
         Function to get model's data and create respective model objects
         """
         self.base_url = request_data["base_url"]
-        responce = urlopen(self.base_url + '/api/models/' + request_data['model_id'] + '.json').read()
+        responce = urlopen(self.base_url + '/api/models/' +
+                           request_data['model_id'] + '.json').read()
         self.jsonData = json.loads(responce)
-#        print self.jsonData
         self.id = str(self.jsonData['id'])
         self.owner_id = str(self.jsonData['owner']['id'])
         self.describtion = str(self.jsonData['description'])
@@ -39,8 +40,10 @@ class Model(object):
         self.area = Area(self.jsonData['area'])
         self.soil_model = Soil_model(self.jsonData['soil_model'], self.base_url)
         self.calculation_properties = Calculation_properties(self.jsonData['calculation_properties'])
-        self.boundaries = [Boundary(i, self.base_url) for i in self.jsonData['boundaries']] if len(self.jsonData['boundaries']) > 0 else None
-        self.wells = [Well(i, self.base_url) for i in self.jsonData['wells']] if len(self.jsonData['boundaries']) > 0 else None
+        self.boundaries = [Boundary(i, self.base_url)
+                           for i in self.jsonData['boundaries']]
+        self.wells = [Well(i, self.base_url)
+                      for i in self.jsonData['wells']]
 
         if 'strt_head_mode' in request_data:
             self.strt_head_mode = request_data['strt_head_mode']
@@ -60,14 +63,17 @@ class Model(object):
 
         self.layers_properties = {}
         for i, prop in enumerate(self.soil_model.geological_layers[0].properties):
-            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data for layer in self.soil_model.geological_layers]
+            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data
+                                                              for layer
+                                                              in self.soil_model.geological_layers]
 
         self.SPD_list = [line_boundary_interpolation.give_SPD(points=boundary.points_xy,
                                                               point_vals=boundary.points_values,
                                                               line=boundary.boundary_line,
                                                               stress_period_list=range(len(self.calculation_properties.stress_periods)),
-                                                              interract_layers=[i for i in range(len(self.soil_model.geological_layers))
-                                                                                  if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
+                                                              interract_layers=[i for i
+                                                                                in range(len(self.soil_model.geological_layers))
+                                                                                if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
                                                               xmin=self.area.xmin,
                                                               xmax=self.area.xmax,
                                                               ymin=self.area.ymin,
@@ -77,6 +83,18 @@ class Model(object):
                                                               layers_botm=self.layers_properties['eb'],
                                                               strt_head_mode=self.strt_head_mode)
                                                               for boundary in self.boundaries]
+        self.WELL_SPD = well_spd.give_well_spd(xmin=self.area.xmin,
+                                               xmax=self.area.xmax,
+                                               ymin=self.area.ymin,
+                                               ymax=self.area.ymax,
+                                               nx=nx, ny=ny,
+                                               x=[i.x for i in self.wells],
+                                               y=[i.y for i in self.wells],
+                                               rates=[i.rates for i in self.wells],
+                                               layers=[i.find_interracted_layer(self.soil_model)[0] for i in self.wells],
+                                               strt_mode='warmed_up',
+                                               stress_periods=range(len(self.calculation_properties.stress_periods)))
+
         self.NPER = len(self.SPD_list[0])
         if self.strt_head_mode == 'simple':
             self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
@@ -87,36 +105,40 @@ class Model(object):
 
     def run_model(self, workspace):
 
-        # Write flopy input datasets
-        NLAY = np.shape(self.IBOUND)[0]
-        NROW = np.shape(self.IBOUND)[1]
-        NCOL = np.shape(self.IBOUND)[2]
-        CHD_SPD = self.SPD_list[0]
-        TOP = self.layers_properties['et'][0] if 'et' in self.layers_properties else None
-        BOT = self.layers_properties['eb'] if 'eb' in self.layers_properties else None
-        HK = self.layers_properties['hc'] if 'hc' in self.layers_properties else None
-        HANI = self.layers_properties['ha'] if 'ha' in self.layers_properties else None
-        VANI = self.layers_properties['va'] if 'va' in self.layers_properties else None
-        DELR = (self.area.ymax - self.area.ymin) / np.shape(self.IBOUND)[1]
-        DELC = (self.area.xmax - self.area.xmin) / np.shape(self.IBOUND)[2]
-
-        MF = flopy.modflow.Modflow(self.id, exe_name='mf2005', version='mf2005', model_ws=workspace)
-        DIS_PACKAGE = flopy.modflow.ModflowDis(MF, nlay=NLAY, nrow=NROW, ncol=NCOL,
-                                               delr=DELR, botm=BOT, delc=DELC,top=TOP,
-                                               laycbd=0, steady=self.STEADY, nper=self.NPER,
-                                               nstp=self.PERLEN, perlen=self.PERLEN)
-#        print len(TOP), len(TOP[0]), len(TOP[1])
-        BAS_PACKAGE = flopy.modflow.ModflowBas(MF, ibound=self.IBOUND,
-                                               strt=np.min(np.array(TOP)),
-                                               hnoflo=-9999, stoper=1.)
+        MF = flopy.modflow.Modflow(self.id, exe_name='mf2005',
+                                   version='mf2005', model_ws=workspace)
+        DIS_PACKAGE = flopy.modflow.ModflowDis(MF,
+                                               nlay=np.shape(self.IBOUND)[0],
+                                               nrow=np.shape(self.IBOUND)[1],
+                                               ncol=np.shape(self.IBOUND)[2],
+                                               delr=(self.area.ymax-self.area.ymin)/np.shape(self.IBOUND)[1],
+                                               delc=(self.area.xmax-self.area.xmin)/np.shape(self.IBOUND)[2],
+                                               botm=self.layers_properties['eb'] if 'eb' in self.layers_properties else None,
+                                               top=self.layers_properties['et'][0] if 'et' in self.layers_properties else None,
+                                               laycbd=0,
+                                               steady=self.STEADY,
+                                               nper=self.NPER,
+                                               nstp=self.PERLEN,
+                                               perlen=self.PERLEN)
+        BAS_PACKAGE = flopy.modflow.ModflowBas(MF,
+                                               ibound=self.IBOUND,
+                                               strt=np.mean(np.array(self.layers_properties['et'][0])),
+                                               hnoflo=-9999,
+                                               stoper=1.)
         OC_PACKAGE = flopy.modflow.ModflowOc(MF)
-        LPF_PACKAGE = flopy.modflow.ModflowLpf(MF, hk=HK, laytyp = 1)
-        PCG_PACKAGE = flopy.modflow.ModflowPcg(MF, mxiter=900, iter1=900)
-        CHD = flopy.modflow.ModflowChd(MF, stress_period_data=CHD_SPD)
-
+        LPF_PACKAGE = flopy.modflow.ModflowLpf(MF,
+                                               hk=self.layers_properties['hc'] if 'hc' in self.layers_properties else None,
+                                               laytyp=1,
+                                               hani=self.layers_properties['ha'] if 'ha' in self.layers_properties else None,
+                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else None)
+        PCG_PACKAGE = flopy.modflow.ModflowPcg(MF,
+                                               mxiter=900,
+                                               iter1=900)
+        CHD = flopy.modflow.ModflowChd(MF, stress_period_data=self.SPD_list[0])
+        WEL = flopy.modflow.ModflowWel(MF, stress_period_data=self.WELL_SPD)
         # Write Modflow input files and run the model
         MF.write_input()
-#        MF.plot()
+        MF.plot()
         MF.run_model()
 
     def create_phantomes(self, phantome_wells):
@@ -126,14 +148,39 @@ class Model(object):
 
 
 class Well(object):
+    """
+    Wells class
+    """
     def __init__(self, jsonDataWell, base_url):
         self.id = str(jsonDataWell['id'])
         url = base_url + '/api/wells/' + self.id + '.json'
         responce = urlopen(url).read()
         jsonData = json.loads(responce)
-        print jsonData
-#        self.pumping_zone_top =
-#        self.pumping_zon_botm =
+#        print jsonData
+        self.x = float(jsonData['point']['x'])
+        self.y = float(jsonData['point']['y'])
+        self.interracted_layer_id = str(jsonData['layer'])
+
+        rate_property = [Property(i, base_url)
+                         for i
+                         in jsonData['properties']
+                         if i['property_type']['abbreviation'] == 'pur']
+        top_property = [Property(i, base_url)
+                        for i
+                        in jsonData['properties']
+                        if i['property_type']['abbreviation'] == 'pur']
+        botm_property = [Property(i, base_url)
+                         for i
+                         in jsonData['properties']
+                         if i['property_type']['abbreviation'] == 'pur']
+
+        self.rates = [i.data for i in rate_property[0].values]
+        self.top = [i.data for i in top_property[0].values]
+        self.botm = [i.data for i in botm_property[0].values]
+
+    def find_interracted_layer(self, soil_model):
+        return [i for i in range(len(soil_model.geological_layers))
+                if soil_model.geological_layers[i].id == self.interracted_layer_id]
 
 
 class Phantome_well(object):
@@ -157,7 +204,8 @@ class Calculation_properties(object):
         self.calculation_type = str(jsonDataCalculation['calculation_type'])
         self.recalculation = jsonDataCalculation['recalculation']
         self.initial_values = Initial_values(jsonDataCalculation['initial_values'])
-        self.stress_periods = [Stress_period(i) for i in jsonDataCalculation['stress_periods']] if len(jsonDataCalculation['stress_periods']) > 0 else None
+        self.stress_periods = [Stress_period(i)
+                               for i in jsonDataCalculation['stress_periods']]
 
 
 class Area(object):
@@ -175,7 +223,8 @@ class Area(object):
             except:
                 pass
 
-        self.boundary_line = [self.geometry[0][str(i)] for i in sorted(points_id)]
+        self.boundary_line = [self.geometry[0][str(i)]
+                              for i in sorted(points_id)]
 
         x = [i[0] for i in self.boundary_line]
         y = [i[1] for i in self.boundary_line]
@@ -193,6 +242,7 @@ class Initial_values(object):
         self.head_from_top_elevation = jsonDataCalculationInitial['head_from_top_elevation']
         self.interpolation = jsonDataCalculationInitial['interpolation']
 
+
 class Stress_period(object):
     """
     Stress period class. ---> Calculation properties.stress_periods
@@ -200,8 +250,10 @@ class Stress_period(object):
     def __init__(self, jsonDataStress):
         begin_raw = str(jsonDataStress['dateTimeBegin']['date'])
         end_raw = str(jsonDataStress['dateTimeEnd']['date'])
-        self.dateTimeBegin = datetime.datetime.strptime(begin_raw,"%Y-%m-%d %H:%M:%S.%f")
-        self.dateTimeEnd = datetime.datetime.strptime(end_raw,"%Y-%m-%d %H:%M:%S.%f")
+        self.dateTimeBegin = datetime.datetime.strptime(begin_raw,
+                                                        "%Y-%m-%d %H:%M:%S.%f")
+        self.dateTimeEnd = datetime.datetime.strptime(end_raw,
+                                                      "%Y-%m-%d %H:%M:%S.%f")
         self.length = (self.dateTimeEnd - self.dateTimeBegin).days
 
 
@@ -211,8 +263,12 @@ class Soil_model(object):
     """
     def __init__(self, jsonDataSoil, base_url):
         self.id = str(jsonDataSoil['id'])
-        layers_unsorted = [Geological_layer(i, base_url) for i in jsonDataSoil['geological_layers']] if len(jsonDataSoil['geological_layers']) > 0 else None
-        self.geological_layers = sorted(layers_unsorted, key = methodcaller('avg_top_elev'), reverse = True) if layers_unsorted is not None else None
+        layers_unsorted = [Geological_layer(i, base_url)
+                           for i
+                           in jsonDataSoil['geological_layers']]
+        self.geological_layers = sorted(layers_unsorted,
+                                        key=methodcaller('avg_top_elev'),
+                                        reverse=True)
 
 class Geological_layer(object):
     """
@@ -224,12 +280,22 @@ class Geological_layer(object):
         url = base_url + '/api/geologicallayers/' + self.id + '.json'
         responce = urlopen(url).read()
         jsonData = json.loads(responce)
-        self.properties = [Property(i, base_url) for i in jsonData['properties']] if len(jsonData['properties']) > 0 else None
-        self.top = [i.values[0].data for i in self.properties if i.property_type_abr == 'et']
-        self.botm = [i.values[0].data for i in self.properties if i.property_type_abr == 'eb']
+        self.properties = [Property(i, base_url)
+                           for i
+                           in jsonData['properties']]
+        self.top = [i.values[0].data
+                    for i
+                    in self.properties
+                    if i.property_type_abr == 'et']
+        self.botm = [i.values[0].data
+                     for i
+                     in self.properties
+                     if i.property_type_abr == 'eb']
+
     def avg_top_elev(self):
         """
-        Function returning mean layer elevation used to define order of the layers
+        Function returning mean layer elevation used to define
+        order of the layers
         """
         return np.mean(np.array(self.top))
 
@@ -307,7 +373,7 @@ class Value(object):
             self.raster_nodata = float(rasterInfo['no_data_val'])
             self.data = rasterInfo['data']
         else:
-            self.value = None
+            self.data = None
 
         self.datetime = str(jsonDataValue['datetime']) if 'datetime' in jsonDataValue else None
 
