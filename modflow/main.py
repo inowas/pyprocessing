@@ -49,7 +49,9 @@ sample_data = {"model_id": "94c48987-7d4f-46ac-9eb8-22e2d4a12d18",
                "operation": "mean",
                "base_url": "http://app.dev.inowas.com",
                "strt_head_mode": "warmed_up",
-               "packages": ["CHD","WEL"]}
+               "prior_steady_period_lenght" : 1,
+               "nstp": [30, 27, 30],
+               "packages": ["CHD", "WEL"]}
 request_data = sample_data
 
 working_directory = '../data/modflow/'
@@ -124,4 +126,10 @@ if request_data['give_raster']:
                                   request_data['operation'])
 
 #print demjson.encode({"head": responce_raster})
+import matplotlib.pyplot as plt
+ras = np.array(responce_raster)
+ras[ras==-9999]=np.nan
+plt.imshow(ras)
+plt.colorbar()
+
 ###############################################################################

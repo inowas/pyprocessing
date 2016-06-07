@@ -102,8 +102,7 @@ class Model(object):
             self.STEADY = False
         elif self.strt_head_mode == 'warmed_up':
             self.STEADY = [True] + [False for i in range(self.NPER - 1)]
-            self.PERLEN = [100] + [i.length for i in self.calculation_properties.stress_periods]
-
+            self.PERLEN = [self.request_data["prior_steady_period_lenght"]] + [i.length for i in self.calculation_properties.stress_periods]
     def run_model(self, workspace):
 
         MF = flopy.modflow.Modflow(self.id, exe_name='mf2005',
@@ -143,7 +142,7 @@ class Model(object):
             WEL = flopy.modflow.ModflowWel(MF, stress_period_data=self.WELL_SPD)
         # Write Modflow input files and run the model
         MF.write_input()
-        MF.plot()
+#        MF.plot()
         MF.run_model()
 
     def create_phantomes(self, phantome_wells):
@@ -161,7 +160,6 @@ class Well(object):
         url = base_url + '/api/wells/' + self.id + '.json'
         responce = urlopen(url).read()
         jsonData = json.loads(responce)
-#        print jsonData
         self.x = float(jsonData['point']['x'])
         self.y = float(jsonData['point']['y'])
         self.interracted_layer_id = str(jsonData['layer'])
