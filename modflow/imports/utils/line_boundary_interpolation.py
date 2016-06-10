@@ -16,15 +16,20 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
     Function interpolating given point values along on a grid along given line
     and returning Stress Period Data dictionary object
     """
+#    print points, point_vals, line, stress_period_list, interract_layers, xmax, xmin, ymax, ymin, nx, ny
     strt_head_mode_options = ['warmed_up', 'simple']
     if strt_head_mode not in strt_head_mode_options:
         print 'given stress period data write mode option is not supported, should be either "warmed_up" or "simple"'
         return
-
+#    xmin = float(xmin)
+#    xmax = float(xmax)
+#    ymin = float(ymin)
+#    ymax = float(ymax)
     # Definition of the cells intersected by a line boundary and by observation points
     line_cols, line_rows = intersector.line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny)
     point_cols, point_rows = [],[]
-
+#    print line
+#    print len(line_cols), len(line_rows)
     # Columns and rows of the observation points
     for point in points:
         point_cols.append(int((point[0] - xmin)/(xmax - xmin) * nx)  if point[0] < xmax else nx - 1)
@@ -103,5 +108,6 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
     else:
         print 'given strt_mode is not supported'
         return
-
+#    for i in CHD_stress_period_data:
+#        print len(CHD_stress_period_data[i])
     return CHD_stress_period_data

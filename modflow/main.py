@@ -39,19 +39,15 @@ import flopy
 from imports import model
 
 # Sample input data ###########################################################
-sample_data = {"model_id": "94c48987-7d4f-46ac-9eb8-22e2d4a12d18",
+sample_data = {"model_id": "25cbd723-5f8d-4128-abe6-d01d04fff707",
                "calculate": True,
-               "nx": 50,
-               "ny": 50,
-               "give_raster": True,
-               "time_steps_of_interest": [10, 20],
-               "layer_of_interest": 1,
-               "operation": "mean",
+               "give_result": True,
+               "output_type": "raster",
+               "time_steps_of_interest": [1],
+               "layer_of_interest": 9,
+               "operation": "raw",
                "base_url": "http://app.dev.inowas.com",
-               "strt_head_mode": "warmed_up",
-               "prior_steady_period_lenght" : 1,
-               "nstp": [30, 27, 30],
-               "packages": ["CHD", "WEL"]}
+               "incluede_packages": ["CHD"]}
 request_data = sample_data
 
 working_directory = '../data/modflow/'
@@ -63,27 +59,44 @@ def create_and_run(workspace, data):
     try:
         m = model.Model()
         m.setFromJson(data)
-        m.set_properties(data['nx'], data['ny'])
+    except:
+        print "Error while getting model data occured: ", sys.exc_info()[0]
+        raise
+        sys.exit()
+    try:
+        m.set_properties()
+    except:
+        print "Error while producing model input occured: ", sys.exc_info()[0]
+        raise
+        sys.exit()
+    try:
         m.run_model(workspace)
     except:
-        print "Unexpected error:", sys.exc_info()[0]
+        print "Error while model execution occured:", sys.exc_info()[0]
         raise
+        sys.exit()
     else:
         print 'model created, calculated and saved'
 
 
 def read_output(workspace, name, timesteps, layer, operation):
+
+    possible_operations = ['mean', 'raw', 'delta',
+                           'max', 'min', 'standard_deviation']
+    if operation not in possible_operations:
+        print 'requested operation is not available'
+        return
     try:
-        possible_operations = ['mean', 'raw', 'delta',
-                               'max', 'min', 'standard_deviation']
-        if operation not in possible_operations:
-            print 'requested operation is not available'
-            return
         head_file_objects = flopy.utils.HeadFile(os.path.join(workspace,
                                                               name+'.hds'))
         heads_ts = [head_file_objects.get_data(totim=timestep) for timestep
                     in timesteps]
         heads_ts_array = np.array([heads[layer].tolist() for heads in heads_ts])
+    except:
+        print "Error while reading 'hds' file occured: ", sys.exc_info()[0]
+        raise
+        return
+    try:
         if operation == 'mean':
             return np.mean(heads_ts_array, axis=0)
         elif operation == 'raw':
@@ -97,14 +110,16 @@ def read_output(workspace, name, timesteps, layer, operation):
         elif operation == 'standard_deviation':
             return np.std(heads_ts_array, axis=0)
     except:
-        print "Unexpected error:", sys.exc_info()[0]
+        print "Error while postprocessing rasters occured:", sys.exc_info()[0]
         raise
+        return
     else:
         print 'raster produced'
 
+
 ###############################################################################
 
-responce_raster = ""
+response_raster = ""
 
 # modflow workspace
 workspace = working_directory + request_data['model_id']
@@ -119,17 +134,17 @@ if not os.path.exists(workspace):
 if request_data['calculate']:
     create_and_run(workspace, request_data)
 
-if request_data['give_raster']:
-    responce_raster = read_output(workspace, request_data['model_id'],
+if request_data['give_result']:
+    response_raster = read_output(workspace, request_data['model_id'],
                                   request_data['time_steps_of_interest'],
                                   request_data['layer_of_interest'],
                                   request_data['operation'])
 
 #print demjson.encode({"head": responce_raster})
 import matplotlib.pyplot as plt
-ras = np.array(responce_raster)
-ras[ras==-9999]=np.nan
-plt.imshow(ras)
+ras = np.array(response_raster)
+#ras[ras==-9999]=np.nan
+plt.imshow(ras[0])
 plt.colorbar()
 
 ###############################################################################

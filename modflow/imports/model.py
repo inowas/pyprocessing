@@ -36,75 +36,104 @@ class Model(object):
         self.jsonData = json.loads(responce)
         self.id = str(self.jsonData['id'])
         self.owner_id = str(self.jsonData['owner']['id'])
-        self.describtion = str(self.jsonData['description'])
         self.name = str(self.jsonData['name'])
         self.area = Area(self.jsonData['area'])
         self.soil_model = Soil_model(self.jsonData['soil_model'], self.base_url)
         self.calculation_properties = Calculation_properties(self.jsonData['calculation_properties'])
         self.boundaries = [Boundary(i, self.base_url)
                            for i in self.jsonData['boundaries']]
-        self.wells = [Well(i, self.base_url)
-                      for i in self.jsonData['wells']]
 
         if 'strt_head_mode' in request_data:
             self.strt_head_mode = request_data['strt_head_mode']
 
-    def set_properties(self, nx, ny):
+    def set_properties(self):
         """
         Calculating properties of the model objects into Flopy input format
         """
         self.IBOUND = ibound.give_ibound(line=self.area.boundary_line,
                                          number_of_layers=len(self.soil_model.geological_layers),
-                                         nx=nx,
-                                         ny=ny,
+                                         nx=self.jsonData['grid_size']['n_x'],
+                                         ny=self.jsonData['grid_size']['n_y'],
                                          xmin=self.area.xmin,
                                          xmax=self.area.xmax,
                                          ymin=self.area.ymin,
                                          ymax=self.area.ymax)
-
+        print 'IBOUND array is created'
         self.layers_properties = {}
-        for i, prop in enumerate(self.soil_model.geological_layers[0].properties):
+        for i, prop in enumerate(self.soil_model.geological_layers[1].properties):
             self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data
                                                               for layer
                                                               in self.soil_model.geological_layers]
+        self.botm = [layer.botm[0] for layer in self.soil_model.geological_layers]
+        self.top = self.soil_model.geological_layers[0].top[0]
+        print self.top
+        print self.botm
+        print 'Layers properties are written'
+        self.GHB_SPD = [boundary.give_spd(area_xmin=self.area.xmin,
+                                           area_xmax=self.area.xmax,
+                                           area_ymin=self.area.ymin,
+                                           area_ymax=self.area.ymax,
+                                           grid_nx=self.jsonData['grid_size']['n_x'],
+                                           grid_ny=self.jsonData['grid_size']['n_y'],
+                                           layers=[i for i in range(len(self.soil_model.geological_layers)) if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
+                                           layers_bot=self.layers_properties['eb'],
+                                           strt=self.strt_head_mode,
+                                           stress_periods=range(len(self.calculation_properties.stress_periods))) for boundary in self.boundaries if boundary.type == 'GHB']
+        if len(self.GHB_SPD) > 0:
+            dic = {}
+            for i in range(len(self.GHB_SPD) - 1):
+                for j in self.GHB_SPD[i]:
+                    dic[j] = self.GHB_SPD[0][j] + self.GHB_SPD[i + 1][j]
+            self.GHB_SPD = dic
 
-        self.SPD_list = [line_boundary_interpolation.give_SPD(points=boundary.points_xy,
-                                                              point_vals=boundary.points_values,
-                                                              line=boundary.boundary_line,
-                                                              stress_period_list=range(len(self.calculation_properties.stress_periods)),
-                                                              interract_layers=[i for i
-                                                                                in range(len(self.soil_model.geological_layers))
-                                                                                if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
-                                                              xmin=self.area.xmin,
-                                                              xmax=self.area.xmax,
-                                                              ymin=self.area.ymin,
-                                                              ymax=self.area.ymax,
-                                                              nx = nx,
-                                                              ny = ny,
-                                                              layers_botm=self.layers_properties['eb'],
-                                                              strt_head_mode=self.strt_head_mode)
-                                                              for boundary in self.boundaries]
-        self.WELL_SPD = well_spd.give_well_spd(xmin=self.area.xmin,
+        self.CHD_SPD = [boundary.give_spd(area_xmin=self.area.xmin,
+                                           area_xmax=self.area.xmax,
+                                           area_ymin=self.area.ymin,
+                                           area_ymax=self.area.ymax,
+                                           grid_nx=self.jsonData['grid_size']['n_x'],
+                                           grid_ny=self.jsonData['grid_size']['n_y'],
+                                           layers=[i for i in range(len(self.soil_model.geological_layers)) if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
+                                           layers_bot=self.layers_properties['eb'],
+                                           strt=self.strt_head_mode,
+                                           stress_periods=range(len(self.calculation_properties.stress_periods))) for boundary in self.boundaries if boundary.type == 'CHB']
+
+
+        if len(self.CHD_SPD) > 0:
+            dic = {}
+            for i in range(len(self.CHD_SPD) - 1):
+                for j in self.CHD_SPD[i]:
+                    dic[j] = self.CHD_SPD[0][j] + self.CHD_SPD[i + 1][j]
+            self.CHD_SPD = dic
+
+
+        self.WEL_SPD = well_spd.give_well_spd(xmin=self.area.xmin,
                                                xmax=self.area.xmax,
                                                ymin=self.area.ymin,
                                                ymax=self.area.ymax,
-                                               nx=nx, ny=ny,
-                                               x=[i.x for i in self.wells],
-                                               y=[i.y for i in self.wells],
-                                               rates=[i.rates for i in self.wells],
-                                               layers=[i.find_interracted_layer(self.soil_model)[0] for i in self.wells],
+                                               nx=self.jsonData['grid_size']['n_x'],
+                                               ny=self.jsonData['grid_size']['n_y'],
+                                               x=[boundary.x for boundary in self.boundaries if boundary.type == 'WEL'],
+                                               y=[boundary.y for boundary in self.boundaries if boundary.type == 'WEL'],
+                                               rates=[boundary.rates for boundary in self.boundaries if boundary.type == 'WEL'],
+                                               layers=[boundary.find_interracted_layer(self.soil_model)[0] for boundary in self.boundaries if boundary.type == 'WEL'],
                                                strt_mode='warmed_up',
                                                stress_periods=range(len(self.calculation_properties.stress_periods)))
 
-        self.NPER = len(self.SPD_list[0])
-        if self.strt_head_mode == 'simple':
-            self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
-            self.STEADY = False
-        elif self.strt_head_mode == 'warmed_up':
-            self.STEADY = [True] + [False for i in range(self.NPER - 1)]
-            self.PERLEN = [self.request_data["prior_steady_period_lenght"]] + [i.length for i in self.calculation_properties.stress_periods]
-    def run_model(self, workspace):
 
+        print 'Stress period data objects are created'
+
+        self.NSTP = [i.nstp for i in self.calculation_properties.stress_periods]
+        self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
+        self.STEADY = [i.steady for i in self.calculation_properties.stress_periods]
+        if self.strt_head_mode == 'warmed_up':
+            self.STEADY = [True] + self.STEADY
+            self.PERLEN = [100] + self.PERLEN
+            self.NSTP = [1] + self.NSTP
+        print 'PERLEN: ' + str(self.PERLEN)
+        print 'STEADY: ' + str(self.STEADY)
+        print 'NSTP: ' + str(self.NSTP)
+
+    def run_model(self, workspace):
         MF = flopy.modflow.Modflow(self.id, exe_name='mf2005',
                                    version='mf2005', model_ws=workspace)
         DIS_PACKAGE = flopy.modflow.ModflowDis(MF,
@@ -113,77 +142,48 @@ class Model(object):
                                                ncol=np.shape(self.IBOUND)[2],
                                                delr=(self.area.ymax-self.area.ymin)/np.shape(self.IBOUND)[1],
                                                delc=(self.area.xmax-self.area.xmin)/np.shape(self.IBOUND)[2],
-                                               botm=self.layers_properties['eb'] if 'eb' in self.layers_properties else None,
-                                               top=self.layers_properties['et'][0] if 'et' in self.layers_properties else None,
+                                               botm=self.botm,
+                                               top=self.top,
                                                laycbd=0,
                                                steady=self.STEADY,
-                                               nper=self.NPER,
-                                               nstp=self.PERLEN,
+                                               nper=len(self.NSTP),
+                                               nstp=self.NSTP,
                                                perlen=self.PERLEN)
         BAS_PACKAGE = flopy.modflow.ModflowBas(MF,
                                                ibound=self.IBOUND,
-                                               strt=np.mean(np.array(self.layers_properties['et'][0])),
+                                               strt=np.mean(np.array(self.layers_properties['et'][0] if 'et' in self.layers_properties else 100)),
                                                hnoflo=-9999,
                                                stoper=1.)
         OC_PACKAGE = flopy.modflow.ModflowOc(MF)
         LPF_PACKAGE = flopy.modflow.ModflowLpf(MF,
-                                               hk=self.layers_properties['hc'] if 'hc' in self.layers_properties else None,
-                                               laytyp=1,
-                                               hani=self.layers_properties['ha'] if 'ha' in self.layers_properties else None,
-                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else None)
+                                               hk=self.layers_properties['hc'] if 'hc' in self.layers_properties else 1.0,
+                                               hani=self.layers_properties['ha'] if 'ha' in self.layers_properties else 1.0,
+                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else 1.0)
         PCG_PACKAGE = flopy.modflow.ModflowPcg(MF,
                                                mxiter=900,
                                                iter1=900)
 
-        if "CHD" in self.request_data["packages"]:
+        if len(self.CHD_SPD) > 0:
             CHD = flopy.modflow.ModflowChd(MF,
-                                           stress_period_data=self.SPD_list[0])
-        if "WEL" in self.request_data["packages"]:
-            WEL = flopy.modflow.ModflowWel(MF, stress_period_data=self.WELL_SPD)
+                                           stress_period_data=self.CHD_SPD)
+        if len(self.GHB_SPD) > 0:
+            CHD = flopy.modflow.ModflowChd(MF,
+                                           stress_period_data=self.GHB_SPD)
+        if len(self.WEL_SPD) > 0:
+            WEL = flopy.modflow.ModflowWel(MF,
+                                           stress_period_data=self.WEL_SPD)
         # Write Modflow input files and run the model
         MF.write_input()
+        print 'Modflow files are written'
 #        MF.plot()
+        print 'Model calculation started'
         MF.run_model()
-
+        print 'Model calculation finished'
     def create_phantomes(self, phantome_wells):
         # Stuff for optimization comes here
         self.phantom_wells = [Phantome_well[i] for i in phantome_wells]
         self.phantome_SPD = {}
 
-
-class Well(object):
-    """
-    Wells class
-    """
-    def __init__(self, jsonDataWell, base_url):
-        self.id = str(jsonDataWell['id'])
-        url = base_url + '/api/wells/' + self.id + '.json'
-        responce = urlopen(url).read()
-        jsonData = json.loads(responce)
-        self.x = float(jsonData['point']['x'])
-        self.y = float(jsonData['point']['y'])
-        self.interracted_layer_id = str(jsonData['layer'])
-
-        rate_property = [Property(i, base_url)
-                         for i
-                         in jsonData['properties']
-                         if i['property_type']['abbreviation'] == 'pur']
-        top_property = [Property(i, base_url)
-                        for i
-                        in jsonData['properties']
-                        if i['property_type']['abbreviation'] == 'pur']
-        botm_property = [Property(i, base_url)
-                         for i
-                         in jsonData['properties']
-                         if i['property_type']['abbreviation'] == 'pur']
-
-        self.rates = [i.data for i in rate_property[0].values]
-        self.top = [i.data for i in top_property[0].values]
-        self.botm = [i.data for i in botm_property[0].values]
-
-    def find_interracted_layer(self, soil_model):
-        return [i for i in range(len(soil_model.geological_layers))
-                if soil_model.geological_layers[i].id == self.interracted_layer_id]
 
 
 class Phantome_well(object):
@@ -204,8 +204,6 @@ class Calculation_properties(object):
     Calculation properties class. ---> Model.calculation_properties
     """
     def __init__(self, jsonDataCalculation):
-        self.calculation_type = str(jsonDataCalculation['calculation_type'])
-        self.recalculation = jsonDataCalculation['recalculation']
         self.initial_values = Initial_values(jsonDataCalculation['initial_values'])
         self.stress_periods = [Stress_period(i)
                                for i in jsonDataCalculation['stress_periods']]
@@ -217,9 +215,9 @@ class Area(object):
     """
     def __init__(self, jsonDataArea):
         self.id = str(jsonDataArea['id'])
+        print 'Getting data for the area id ' + self.id
         self.geometry = jsonDataArea['geometry']
         points_id = []
-
         for point in self.geometry[0]:
             try:
                 points_id.append(int(point))
@@ -242,8 +240,12 @@ class Initial_values(object):
     Initial values class. ---> Calculation properties.initial_values
     """
     def __init__(self, jsonDataCalculationInitial):
-        self.head_from_top_elevation = jsonDataCalculationInitial['head_from_top_elevation']
-        self.interpolation = jsonDataCalculationInitial['interpolation']
+        if 'head_from_top_elevation' in jsonDataCalculationInitial:
+            self.head_from_top_elevation = jsonDataCalculationInitial['head_from_top_elevation']
+        if 'interpolation' in jsonDataCalculationInitial:
+            self.interpolation = jsonDataCalculationInitial['interpolation']
+        if 'steady_state_calculation' in jsonDataCalculationInitial:
+            self.steady_state_calculation = jsonDataCalculationInitial['steady_state_calculation']
 
 
 class Stress_period(object):
@@ -258,6 +260,8 @@ class Stress_period(object):
         self.dateTimeEnd = datetime.datetime.strptime(end_raw,
                                                       "%Y-%m-%d %H:%M:%S.%f")
         self.length = (self.dateTimeEnd - self.dateTimeBegin).days
+        self.nstp = jsonDataStress['numberOfTimeSteps']
+        self.steady = jsonDataStress['steady']
 
 
 class Soil_model(object):
@@ -279,6 +283,7 @@ class Geological_layer(object):
     """
     def __init__(self, jsonDataLayer, base_url):
         self.id = str(jsonDataLayer['id'])
+        print 'Getting data for the Layer id ' + self.id
         # Set data
         url = base_url + '/api/geologicallayers/' + self.id + '.json'
         responce = urlopen(url).read()
@@ -286,6 +291,18 @@ class Geological_layer(object):
         self.properties = [Property(i, base_url)
                            for i
                            in jsonData['properties']]
+        self.hc = [i.values[0].data
+                    for i
+                    in self.properties
+                    if i.property_type_abr == 'hc']
+#        self.vka = [i.values[0].data
+#                    for i
+#                    in self.properties
+#                    if i.property_type_abr == 'et']
+#        self.hani = [i.values[0].data
+#                    for i
+#                    in self.properties
+#                    if i.property_type_abr == 'et']
         self.top = [i.values[0].data
                     for i
                     in self.properties
@@ -295,12 +312,14 @@ class Geological_layer(object):
                      in self.properties
                      if i.property_type_abr == 'eb']
 
+
     def avg_top_elev(self):
         """
         Function returning mean layer elevation used to define
         order of the layers
         """
         return np.mean(np.array(self.top))
+
 
 class Boundary(object):
     """
@@ -312,32 +331,94 @@ class Boundary(object):
         url = base_url + '/api/boundaries/'+self.id+'.json'
         responce = urlopen(url).read()
         jsonData = json.loads(responce)
+        self.type = str(jsonData['type'])
+        print 'Preparing data for the '+self.type+' boundary id ' + self.id
+        self.data_given_at = None
+        # Properies
+        if 'properties' in jsonData and len(jsonData['properties']) > 0:
+            self.data_given_at = 'geometry'
+            self.properties = [Property(i, base_url)
+                               for i
+                               in jsonData['properties']]
+            self.value = []
+            self.value.append([i.data for i in self.properties[0].values])
+        if 'observation_points' in jsonData and len(jsonData['observation_points']) > 0:
+            # Observation points
+            self.data_given_at = 'points'
+            self.observation_points = []
+            self.observation_points = [Observation_points(i, base_url)
+                                       for i in jsonData['observation_points']]
+            self.points_xy = []
+            self.points_values = []
+            for point in range(len(self.observation_points)):
+                print [i for i in self.observation_points[point].properties]
+                self.points_values.append([i.data for i
+                                          in self.observation_points[point].properties[0].values])
+                self.points_xy.append([self.observation_points[point].x,
+                                       self.observation_points[point].y])
 
-        self.geometry = jsonData['geometry']
-        self.observation_points = [Observation_points(i, base_url) for i in jsonData['observation_points']] if len(jsonData['observation_points']) > 0 else None
-        points_id = []
-        for point in self.geometry:
-            try:
-                points_id.append(int(point))
-            except:
-                pass
-        self.boundary_line = [self.geometry[str(i)] for i in range(len(points_id))]
+        if self.type == 'WEL':
+            self.x = float(jsonData['point']['x'])
+            self.y = float(jsonData['point']['y'])
+            self.interracted_layer_id = str(jsonData['layer'])
 
-        self.points_xy = []
-        self.points_values = []
-        for point in range(len(self.observation_points)):
-            self.points_values.append([i.data for i in self.observation_points[point].properties[0].values])
-            self.points_xy.append([self.observation_points[point].x, self.observation_points[point].y])
+            rate_property = [Property(i, base_url)
+                             for i
+                             in jsonData['properties']
+                             if i['property_type']['abbreviation'] == 'pur']
+            top_property = [Property(i, base_url)
+                            for i
+                            in jsonData['properties']
+                            if i['property_type']['abbreviation'] == 'pur']
+            botm_property = [Property(i, base_url)
+                             for i
+                             in jsonData['properties']
+                             if i['property_type']['abbreviation'] == 'pur']
 
-        self.interracted_layers_ids = [str(i['id']) for i in jsonData['geological_layers']]
+            self.rates = [i.data for i in rate_property[0].values]
+            self.top = [i.data for i in top_property[0].values]
+            self.botm = [i.data for i in botm_property[0].values]
+        else:
+            self.geometry = jsonData['geometry']
+            points_id = []
+            for point in self.geometry:
+                try:
+                    points_id.append(int(point))
+                except:
+                    pass
+            self.boundary_line = [self.geometry[str(i)] for i in range(len(points_id))]
+            # Layers
+            self.interracted_layers_ids = [str(i['id']) for i in jsonData['geological_layers']]
+
+    def find_interracted_layer(self, soil_model):
+        return [i for i in range(len(soil_model.geological_layers))
+                if soil_model.geological_layers[i].id == self.interracted_layer_id]
+
+    def give_spd(self, area_xmin, area_xmax, area_ymin, area_ymax, grid_nx, grid_ny, layers, layers_bot, strt, stress_periods):
+        self.spd = line_boundary_interpolation.give_SPD(points=self.points_xy if self.data_given_at == 'points' else [self.boundary_line[0]],
+                                                        point_vals=self.points_values if self.data_given_at == 'points' else self.value,
+                                                        line=self.boundary_line,
+                                                        stress_period_list=stress_periods,
+                                                        interract_layers=layers if len(layers)>0 else range(len(layers_bot)),
+                                                        xmin=area_xmin,
+                                                        xmax=area_xmax,
+                                                        ymin=area_ymin,
+                                                        ymax=area_ymax,
+                                                        nx=grid_nx,
+                                                        ny=grid_ny,
+                                                        layers_botm=layers_bot,
+                                                        strt_head_mode=strt)
+        return self.spd
+
+
 
 class Observation_points(object):
     """
     Observation point class. ---> Boundary.observation_points
     """
     def __init__(self, jsonDataObservationPoints, base_url):
-
         self.id = str(jsonDataObservationPoints['id'])
+        print 'Getting data for the observation point id ' + self.id
         self.properties = [Property(i, base_url) for i in jsonDataObservationPoints['properties']] if len(jsonDataObservationPoints['properties']) > 0 else None
         self.x = float(jsonDataObservationPoints['point']['x'])
         self.y = float(jsonDataObservationPoints['point']['y'])

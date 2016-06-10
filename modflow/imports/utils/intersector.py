@@ -10,17 +10,21 @@ import numpy as np
 def line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny):
     """
     Function returning lists of rows and columns of a given grid intersected by a given line
-    Is a modification of a Bresenham's algorithm https://en.wikipedia.org/wiki/Bresenham's_line_algorithm 
+    Is a modification of a Bresenham's algorithm https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
     """
-    line_cols = []
-    line_rows = []
-    dx = (xmax - xmin)/nx
-    dy = (ymax - ymin)/ny
+
     #Converting line values to floats
     for i, point in enumerate(line):
         for j, xy in enumerate(point):
             line[i][j] = float(xy)
-    # Line is divided into segments operation is repeated for each. 
+    xmax, xmin, ymax, ymin = float(xmax), float(xmin), float(ymax), float(ymin)
+
+    line_cols = []
+    line_rows = []
+    dx = (xmax - xmin)/nx
+    dy = (ymax - ymin)/ny
+
+    # Line is divided into segments operation is repeated for each.
     for segment in range(len(line) - 1):
         strt_x = line[segment][0]
         end_x = line[segment + 1][0]
@@ -29,7 +33,7 @@ def line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny):
 
         strt_col = int((strt_x - xmin)/(xmax - xmin) * (nx)) if strt_x < xmax else nx - 1
         end_col = int((end_x - xmin)/(xmax - xmin) * (nx)) if end_x < xmax else nx - 1
-        strt_row = int((strt_y - ymin)/(ymax - ymin) * (ny)) if strt_y < ymax else ny - 1 
+        strt_row = int((strt_y - ymin)/(ymax - ymin) * (ny)) if strt_y < ymax else ny - 1
         end_row = int((end_y - ymin)/(ymax - ymin) * (ny)) if end_y < ymax else ny - 1
 
         steep = abs(strt_y - end_y) >= abs(strt_x - end_x)
@@ -42,7 +46,7 @@ def line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny):
             dy, dx = dx, dy
             xmin, ymin = ymin, xmin
         # Calculate the segments function parameters
-        slope = (end_y - strt_y)/(end_x - strt_x)  
+        slope = (end_y - strt_y)/(end_x - strt_x)
         upwards = abs(strt_y) <= abs(end_y)
         forward = abs(strt_x) <= abs(end_x)
         # Find first border coordinates (bx, by) of the grid
@@ -51,14 +55,14 @@ def line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny):
         segment_rows = [strt_row]
         segment_cols = [strt_col]
         j = 0
-        # Appending cells intersected by the segment to segment_rows, cols 
+        # Appending cells intersected by the segment to segment_rows, cols
         for i in range(abs(end_col - strt_col)):
             y = strt_y + slope * (strt_bx + dx * i - strt_x) if forward else strt_y + slope * (strt_bx - dx * i - strt_x)
-            crossed = y >= strt_by + dy * j if upwards else y <= strt_by - dy * j
+            crossed = y > strt_by + dy * j if upwards else y < strt_by - dy * j
             if crossed:
                 col = strt_col + i if forward else strt_col - i
                 segment_cols.append(col)
-                col = strt_col + (i + 1) if forward else strt_col - (i + 1) 
+                col = strt_col + (i + 1) if forward else strt_col - (i + 1)
                 segment_cols.append(col)
                 row = strt_row + (j + 1) if upwards else strt_row - (j + 1)
                 segment_rows.append(row)
@@ -85,5 +89,18 @@ def line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny):
         else:
             line_cols += segment_cols[1:]
             line_rows += segment_rows[1:]
+    if len(line_cols) > 1:
+        if line_cols[-1] == line_cols[0] and line_rows[-1] == line_rows[0]:
+            del line_cols[-1]
+            del line_rows[-1]
+    line_cols = np.array(line_cols)
+    line_rows = np.array(line_rows)
+    line_cols[line_cols >= nx] = nx-1
+    line_cols[line_cols < 0] = 0
+    line_rows[line_rows >= ny] = ny-1
+    line_rows[line_rows < 0] = 0
 
-    return np.array(line_cols), np.array(line_rows)
+#    print len(line_rows), len(line_cols)
+#    print line_rows, line_cols
+
+    return line_cols, line_rows
