@@ -11,7 +11,7 @@ import intersector
 #import matplotlib.pyplot as plt
 
 
-def give_ibound(line, number_of_layers, nx, ny, xmin, xmax, ymin, ymax):
+def give_ibound(line, number_of_layers, nx, ny, xmin, xmax, ymin, ymax, boundary_value=1):
     """
     Function that finds if cells of a given grid are inside a given polygon.
     Returns an IBOUND - 2D array object, in which inner cells have values of '1' and outer have values of '0'
@@ -39,16 +39,16 @@ def give_ibound(line, number_of_layers, nx, ny, xmin, xmax, ymin, ymax):
                 ibound[:, i, j] = 1
 #    print len(area_line_rows)
     for i in range(len(area_line_rows)):
-        ibound[:, area_line_rows[i], area_line_cols[i]] = 1
+        ibound[:, area_line_rows[i], area_line_cols[i]] = boundary_value
     # Rotete the array to 180 degrees to fit flopy IBOUND convention
     return np.rot90(ibound, 2)
 
 #import matplotlib.pyplot as plt
-#snrow = 101
-#sncol = 101
-#snx, sny = sncol, snrow
-#sxmin, sxmax, symin, symax = 0., 400., 0., 400.
-#sline = [[0.,0.],[0.,400.],[400.,400.],[400.,0.],[0.,0.]]
-#snumber_of_layers = 1
-#i = give_ibound(sline, snumber_of_layers, snx, sny, sxmin, sxmax, symin, symax)
+snrow = 11
+sncol = 11
+snx, sny = sncol, snrow
+sxmin, sxmax, symin, symax = 0., 400., 0., 400.
+sline = [[0.,0.],[0.,300.],[400.,300.],[400.,0.],[0.,0.]]
+snumber_of_layers = 1
+i = give_ibound(sline, snumber_of_layers, snx, sny, sxmin, sxmax, symin, symax)
 #plt.imshow(i[0], interpolation = 'nearest')

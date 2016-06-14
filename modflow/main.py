@@ -39,9 +39,9 @@ import flopy
 from imports import model
 
 # Sample input data ###########################################################
-sample_data = {"model_id": "25cbd723-5f8d-4128-abe6-d01d04fff707",
+sample_data = {"model_id": "74f8ece4-a427-4bca-b426-42d7413cf874",
                "calculate": True,
-               "give_result": True,
+               "give_result": False,
                "output_type": "raster",
                "time_steps_of_interest": [1],
                "layer_of_interest": 9,

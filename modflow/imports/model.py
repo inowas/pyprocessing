@@ -253,6 +253,7 @@ class Stress_period(object):
     Stress period class. ---> Calculation properties.stress_periods
     """
     def __init__(self, jsonDataStress):
+        print jsonDataStress
         begin_raw = str(jsonDataStress['dateTimeBegin']['date'])
         end_raw = str(jsonDataStress['dateTimeEnd']['date'])
         self.dateTimeBegin = datetime.datetime.strptime(begin_raw,

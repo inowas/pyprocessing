@@ -1,6 +1,6 @@
 #! /usr/env python
 
-from pyKriging.krige import kriging
+
 from sklearn.gaussian_process import GaussianProcess
 import demjson
 import numpy as np
