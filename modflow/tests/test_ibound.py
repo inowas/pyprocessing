@@ -11,8 +11,7 @@ class Test_ibound(unittest.TestCase):
         pass
 
     def test_if_output_equals_to_expected(self):
-        snrow = 11
-        sncol = 11
+
         snx, sny = sncol, snrow
         sxmin, sxmax, symin, symax = 0., 400., 0., 400.
         sline = [[0., 0.], [0., 300.], [400., 300.],

@@ -100,7 +100,5 @@ def line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny):
     line_rows[line_rows >= ny] = ny-1
     line_rows[line_rows < 0] = 0
 
-#    print len(line_rows), len(line_cols)
-#    print line_rows, line_cols
 
     return line_cols, line_rows
