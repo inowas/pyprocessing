@@ -22,34 +22,34 @@ class Test_line_area_intersector(unittest.TestCase):
                      [400., 0.], [0., 0.]]
         self.layers_botm = [0,-10]
         self.strt_head_mode = 'warmed_up'
-        self.stress_period_data = line_boundary_interpolation.give_SPD(points,
-                                                                 point_vals,
-                                                                 line,
-                                                                 stress_period_list,
-                                                                 interract_layers,
-                                                                 xmax, xmin, ymax, ymin, nx, ny,
-                                                                 layers_botm,
-                                                                 strt_head_mode)
+        self.stress_period_data = line_boundary_interpolation.give_SPD(self.points,
+                                                                 self.point_vals,
+                                                                 self.line,
+                                                                 self.stress_period_list,
+                                                                 self.interract_layers,
+                                                                 self.xmax, self.xmin,
+                                                                 self.ymax, self.ymin,
+                                                                 self.nx, self.ny,
+                                                                 self.layers_botm,
+                                                                 self.strt_head_mode)
 
     def tearDown(self):
-        self.points = None
-        self.nx, self.ny = None
-        self.point_vals = None
-        self.stress_period_list = None
-        self.interract_layers = None
-        self.xmin, self.xmax, self.ymin, self.ymax = None
-        self.line = None
-        self.layers_botm = [0,-10]
-        self.strt_head_mode = None
-        self.stress_period_data = None
+        del self
 
-    def check_number_of_stress_periods(self):
+    def test_number_of_stress_periods(self):
         if self.strt_head_mode == 'warmed_up':
             self.assertEqual(len(self.stress_period_data),
                              len(self.stress_period_list) + 1)
         else:
             self.assertEqual(len(self.stress_period_data),
                              len(self.stress_period_list))
+
+    def test_number_of_boundary_cells_in_each_sp(self):
+        _boundary_line_lenght = 36
+        for i in self.stress_period_list:
+            self.assertEqual(len(self.stress_period_data[i]),
+                             _boundary_line_lenght * len(self.interract_layers))
+
 
 
 if __name__ == '__main__':

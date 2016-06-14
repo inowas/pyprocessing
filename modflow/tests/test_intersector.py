@@ -28,9 +28,9 @@ class Test_line_area_intersectr(unittest.TestCase):
                                                                ymin, nx, ny)
 
         _control_line_cols = [0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,10,10,
-                             10,10,10,10,10,10,9,8,7,6,5,4,3,2,1]
+                              10,10,10,10,10,10,9,8,7,6,5,4,3,2,1]
         _control_line_rows = [0,1,2,3,4,5,6,7,8,8,8,8,8,8,8,8,8,8,8,
-                             7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0]
+                              7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0]
 
         self.assertEqual(len(line_cols), len(line_rows))
         self.assertEqual(line_cols.tolist(), _control_line_cols)
