@@ -13,6 +13,6 @@ output_file_name = sys.argv[2]
 
 r = RasterImage()
 r.from_file(input_file_name)
-r._name = output_file_name
+r.setOutputFileName(output_file_name)
 newFile = r.makeImage()
 print newFile

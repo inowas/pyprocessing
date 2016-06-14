@@ -73,6 +73,9 @@ class RasterImage(object):
             self._color_scheme = json_dict['color_scheme']
         else:
             self._color_scheme = 'jet'
+    
+    def setOutputFileName(self, name):
+        self._name = name
 
     def makeImage(self):
         self.fileName = self.writeRaster(self._data, self._nodata,
