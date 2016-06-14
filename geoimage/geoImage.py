@@ -51,7 +51,7 @@ class RasterImage(object):
             self._workspace = json_dict['workspace']
         else:
             print 'Default workspace is used'
-            self._workspace = '.'
+            self._workspace = os.path.join('images')
 
         if 'name' in json_dict:
             self._name = json_dict['name']

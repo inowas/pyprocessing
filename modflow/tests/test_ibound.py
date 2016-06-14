@@ -2,7 +2,7 @@ import unittest
 from imports.utils import ibound
 
 
-class SimpleWidgetTestCase(unittest.TestCase):
+class Test_ibound(unittest.TestCase):
 
     def setUp(self):
         pass
@@ -10,7 +10,7 @@ class SimpleWidgetTestCase(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_default_widget_size(self):
+    def test_if_output_equals_to_expected(self):
         snrow = 11
         sncol = 11
         snx, sny = sncol, snrow
