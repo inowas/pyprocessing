@@ -6,7 +6,7 @@ from interpolation import Interpolation
 input_file_name = sys.argv[1]
 output_file_name = ''
 
-if sys.argv[2]:
+if len(sys.argv) > 2:
     output_file_name = sys.argv[2]
 
 ip = Interpolation()

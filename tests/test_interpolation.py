@@ -73,7 +73,7 @@ class InterpolationTests(unittest.TestCase):
         interpolation = Interpolation()
         interpolation.from_file('./testfiles/valid_idw.json')
         interpolation.calculate()
-        self.assertEqual(60, len(interpolation._output))
+        self.assertEqual(50, len(interpolation._output))
         self.assertEqual(50, len(interpolation._output[0]))
 
     def test_kriging(self):
