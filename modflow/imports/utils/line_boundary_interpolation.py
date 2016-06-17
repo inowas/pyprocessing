@@ -11,20 +11,27 @@ Modflow CHD line boundary module. Modflow CHD
 
 import intersector
 
-def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xmax, xmin, ymax, ymin, nx, ny, layers_botm = None, strt_head_mode = 'warmed_up'):
+def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xmax, xmin, ymax, ymin, nx, ny, boundary_type, layers_botm = None, strt_head_mode = 'simple'):
     """
     Function interpolating given point values along on a grid along given line
     and returning Stress Period Data dictionary object
     """
-#    print points, point_vals, line, stress_period_list, interract_layers, xmax, xmin, ymax, ymin, nx, ny
+    if 'hh' in point_vals:
+        point_head_vals = point_vals['hh']
+    if 'rs' in point_vals:
+        point_head_vals = point_vals['rs']
+    if 'rbc' in point_vals:
+        point_head_vals = point_vals['rbc']
+    if 'eb' in point_vals:
+        point_head_vals = point_vals['eb']
     strt_head_mode_options = ['warmed_up', 'simple']
     if strt_head_mode not in strt_head_mode_options:
         print 'given stress period data write mode option is not supported, should be either "warmed_up" or "simple"'
         return
-#    xmin = float(xmin)
-#    xmax = float(xmax)
-#    ymin = float(ymin)
-#    ymax = float(ymax)
+    xmin = float(xmin)
+    xmax = float(xmax)
+    ymin = float(ymin)
+    ymax = float(ymax)
     # Definition of the cells intersected by a line boundary and by observation points
     line_cols, line_rows = intersector.line_area_intersect(line, xmax, xmin, ymax, ymin, nx, ny)
     point_cols, point_rows = [],[]
@@ -42,7 +49,7 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
         for line_idx in range(len(line_cols)):
             for point_idx in range(len(point_cols)):
                 if line_cols[line_idx] == point_cols[point_idx] and line_rows[line_idx] == point_rows[point_idx]:
-                    list_of_values_single_timestep.append(point_vals[period][point_idx])
+                    list_of_values_single_timestep.append(point_head_vals[point_idx][period])
                 else:
                     list_of_values_single_timestep.append(None)
 
@@ -76,38 +83,43 @@ def give_SPD(points, point_vals, line, stress_period_list, interract_layers, xma
                     break
             break
 
-    # Writing CHD Stress Period Data dictionary
-    if strt_head_mode == 'simple':
-        CHD_stress_period_data = {}
-        for period in stress_period_list:
-            SPD_single = []
-            for lay in interract_layers:
-                for i in range(len(line_cols)):
-                    # For periods except the last one head at begining and end vary
-                    if period != stress_period_list[-1]:
-                        SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period + 1][i]])
-                    else:
-                        SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period][i]])
-                    CHD_stress_period_data[period] = SPD_single
-
-    elif strt_head_mode == 'warmed_up':
-        CHD_stress_period_data = {}
-        for period in stress_period_list:
-            SPD_single = []
-            for lay in interract_layers:
-                for i in range(len(line_cols)):
-                    # For periods except the last one head at begining and end vary
-                    if period != stress_period_list[-1]:
-                        SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period + 1][i]])
-                    else:
-                        SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period][i]])
-                    if len(CHD_stress_period_data) == 0:
+    if boundary_type == 'CHB':
+        # Writing CHD Stress Period Data dictionary
+        if strt_head_mode == 'simple':
+            CHD_stress_period_data = {}
+            for period in stress_period_list:
+                SPD_single = []
+                for lay in interract_layers:
+                    for i in range(len(line_cols)):
+                        # For periods except the last one head at begining and end vary
+                        if period != stress_period_list[-1]:
+                            SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period + 1][i]])
+                        else:
+                            SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period][i]])
                         CHD_stress_period_data[period] = SPD_single
-                    CHD_stress_period_data[period + 1] = SPD_single
 
-    else:
-        print 'given strt_mode is not supported'
-        return
+        elif strt_head_mode == 'warmed_up':
+            CHD_stress_period_data = {}
+            for period in stress_period_list:
+                SPD_single = []
+                for lay in interract_layers:
+                    for i in range(len(line_cols)):
+                        # For periods except the last one head at begining and end vary
+                        if period != stress_period_list[-1]:
+                            SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period + 1][i]])
+                        else:
+                            SPD_single.append([lay, line_rows_reversed[i], line_cols[i], list_of_values[period][i], list_of_values[period][i]])
+                        if len(CHD_stress_period_data) == 0:
+                            CHD_stress_period_data[period] = SPD_single
+                        CHD_stress_period_data[period + 1] = SPD_single
+
+#    elif boundary_type == 'RIV':
+
+
+        else:
+            print 'given strt_mode is not supported'
+            return
 #    for i in CHD_stress_period_data:
 #        print len(CHD_stress_period_data[i])
+
     return CHD_stress_period_data

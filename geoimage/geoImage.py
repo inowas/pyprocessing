@@ -73,7 +73,7 @@ class RasterImage(object):
             self._color_scheme = json_dict['color_scheme']
         else:
             self._color_scheme = 'jet'
-    
+
     def setOutputFileName(self, name):
         self._name = name
 
@@ -104,7 +104,7 @@ class RasterImage(object):
         else:
             pass
 
-        valid_color_schemes = ['jet', 'gist_earth', 'rainbow', 'terrain']
+        valid_color_schemes = ['jet', 'gist_earth', 'rainbow', 'terrain', 'gist_rainbow']
         if color_scheme not in valid_color_schemes:
             print 'Not valid color scheme name'
             return
@@ -124,6 +124,8 @@ class RasterImage(object):
             colors = plt.cm.rainbow(norm(data))
         elif color_scheme == 'terrain':
             colors = plt.cm.terrain(norm(data))
+        elif color_scheme == 'gist_rainbow':
+            colors = plt.cm.gist_rainbow(norm(data))
 
         rgb_uint8 = (np.dstack((colors[:, :, 0],
                                 colors[:, :, 1],
@@ -133,5 +135,5 @@ class RasterImage(object):
         img = Image.fromarray(rgb_uint8)
         fileName = os.path.join(workspace, name + '.png')
         img.save(fileName)
-
+        print 'Raster image is created ' + fileName
         return 'Raster image is created ' + fileName

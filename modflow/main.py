@@ -39,9 +39,9 @@ import flopy
 from imports import model
 
 # Sample input data ###########################################################
-sample_data = {"model_id": "74f8ece4-a427-4bca-b426-42d7413cf874",
+sample_data = {"model_id": "9e90de75-cbab-49af-a6e0-491af103fcac",
                "calculate": True,
-               "give_result": False,
+               "give_result": True,
                "output_type": "raster",
                "time_steps_of_interest": [1],
                "layer_of_interest": 9,
@@ -143,7 +143,7 @@ if request_data['give_result']:
 #print demjson.encode({"head": responce_raster})
 import matplotlib.pyplot as plt
 ras = np.array(response_raster)
-#ras[ras==-9999]=np.nan
+ras[ras==-9999]=np.nan
 plt.imshow(ras[0])
 plt.colorbar()
 

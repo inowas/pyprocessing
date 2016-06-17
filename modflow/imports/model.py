@@ -44,7 +44,8 @@ class Model(object):
                            for i in self.jsonData['boundaries']]
 
         if 'strt_head_mode' in request_data:
-            self.strt_head_mode = request_data['strt_head_mode']
+            self.strt_head_mode = 'simple'
+        self.strt_head_mode = 'simple'
 
     def set_properties(self):
         """
@@ -60,14 +61,17 @@ class Model(object):
                                          ymax=self.area.ymax)
         print 'IBOUND array is created'
         self.layers_properties = {}
-        for i, prop in enumerate(self.soil_model.geological_layers[1].properties):
-            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data
-                                                              for layer
-                                                              in self.soil_model.geological_layers]
+#        for i, prop in enumerate(self.soil_model.geological_layers[1].properties):
+#            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data
+#                                                              for layer
+#                                                              in self.soil_model.geological_layers]
+
         self.botm = [layer.botm[0] for layer in self.soil_model.geological_layers]
-        self.top = self.soil_model.geological_layers[0].top[0]
-        print self.top
-        print self.botm
+        for i in self.soil_model.geological_layers:
+            if len(i.top) > 0:
+                self.top = i.top[0]
+#        self.top = self.soil_model.geological_layers[0].top[0]
+
         print 'Layers properties are written'
         self.GHB_SPD = [boundary.give_spd(area_xmin=self.area.xmin,
                                            area_xmax=self.area.xmax,
@@ -76,7 +80,7 @@ class Model(object):
                                            grid_nx=self.jsonData['grid_size']['n_x'],
                                            grid_ny=self.jsonData['grid_size']['n_y'],
                                            layers=[i for i in range(len(self.soil_model.geological_layers)) if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
-                                           layers_bot=self.layers_properties['eb'],
+                                           layers_bot=self.botm,
                                            strt=self.strt_head_mode,
                                            stress_periods=range(len(self.calculation_properties.stress_periods))) for boundary in self.boundaries if boundary.type == 'GHB']
         if len(self.GHB_SPD) > 0:
@@ -93,7 +97,7 @@ class Model(object):
                                            grid_nx=self.jsonData['grid_size']['n_x'],
                                            grid_ny=self.jsonData['grid_size']['n_y'],
                                            layers=[i for i in range(len(self.soil_model.geological_layers)) if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
-                                           layers_bot=self.layers_properties['eb'],
+                                           layers_bot=self.botm,
                                            strt=self.strt_head_mode,
                                            stress_periods=range(len(self.calculation_properties.stress_periods))) for boundary in self.boundaries if boundary.type == 'CHB']
 
@@ -116,13 +120,14 @@ class Model(object):
                                                y=[boundary.y for boundary in self.boundaries if boundary.type == 'WEL'],
                                                rates=[boundary.rates for boundary in self.boundaries if boundary.type == 'WEL'],
                                                layers=[boundary.find_interracted_layer(self.soil_model)[0] for boundary in self.boundaries if boundary.type == 'WEL'],
-                                               strt_mode='warmed_up',
+                                               strt_mode=self.strt_head_mode,
                                                stress_periods=range(len(self.calculation_properties.stress_periods)))
 
 
         print 'Stress period data objects are created'
 
         self.NSTP = [i.nstp for i in self.calculation_properties.stress_periods]
+        self.NSTP = [30,27,30]
         self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
         self.STEADY = [i.steady for i in self.calculation_properties.stress_periods]
         if self.strt_head_mode == 'warmed_up':
@@ -152,13 +157,13 @@ class Model(object):
         BAS_PACKAGE = flopy.modflow.ModflowBas(MF,
                                                ibound=self.IBOUND,
                                                strt=np.mean(np.array(self.layers_properties['et'][0] if 'et' in self.layers_properties else 100)),
-                                               hnoflo=-9999,
-                                               stoper=1.)
+                                               hnoflo=-9999)
         OC_PACKAGE = flopy.modflow.ModflowOc(MF)
         LPF_PACKAGE = flopy.modflow.ModflowLpf(MF,
                                                hk=self.layers_properties['hc'] if 'hc' in self.layers_properties else 1.0,
                                                hani=self.layers_properties['ha'] if 'ha' in self.layers_properties else 1.0,
-                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else 1.0)
+                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else 1.0,
+                                               laytyp=1)
         PCG_PACKAGE = flopy.modflow.ModflowPcg(MF,
                                                mxiter=900,
                                                iter1=900)
@@ -341,8 +346,15 @@ class Boundary(object):
             self.properties = [Property(i, base_url)
                                for i
                                in jsonData['properties']]
-            self.value = []
-            self.value.append([i.data for i in self.properties[0].values])
+            self.properties_dic = {}
+            for prop in self.properties:
+                self.properties_dic[prop.property_type_abr] = []
+            for prop in self.properties_dic:
+                for i in self.properties:
+                    if i.property_type_abr == prop:
+                        self.properties_dic[prop].append([j.data for j in i.values])
+            print self.properties_dic
+
         if 'observation_points' in jsonData and len(jsonData['observation_points']) > 0:
             # Observation points
             self.data_given_at = 'points'
@@ -351,12 +363,17 @@ class Boundary(object):
                                        for i in jsonData['observation_points']]
             self.points_xy = []
             self.points_values = []
+            self.points_properties_dic = {}
             for point in range(len(self.observation_points)):
-                print [i for i in self.observation_points[point].properties]
-                self.points_values.append([i.data for i
-                                          in self.observation_points[point].properties[0].values])
+                if point == 0:
+                    for prop in self.observation_points[point].properties_dic:
+                        self.points_properties_dic[prop] = []
+                for i in self.points_properties_dic:
+                    self.points_properties_dic[i].append( self.observation_points[point].properties_dic[i])
+
                 self.points_xy.append([self.observation_points[point].x,
                                        self.observation_points[point].y])
+            print self.points_properties_dic
 
         if self.type == 'WEL':
             self.x = float(jsonData['point']['x'])
@@ -380,7 +397,10 @@ class Boundary(object):
             self.top = [i.data for i in top_property[0].values]
             self.botm = [i.data for i in botm_property[0].values]
         else:
-            self.geometry = jsonData['geometry']
+            if self.type == 'RIV':
+                self.geometry = jsonData['line']
+            else:
+                self.geometry = jsonData['geometry']
             points_id = []
             for point in self.geometry:
                 try:
@@ -389,7 +409,10 @@ class Boundary(object):
                     pass
             self.boundary_line = [self.geometry[str(i)] for i in range(len(points_id))]
             # Layers
-            self.interracted_layers_ids = [str(i['id']) for i in jsonData['geological_layers']]
+            if 'geological_layers' in jsonData:
+                self.interracted_layers_ids = [str(i['id']) for i in jsonData['geological_layers']]
+            else:
+                self.interracted_layers_ids = []
 
     def find_interracted_layer(self, soil_model):
         return [i for i in range(len(soil_model.geological_layers))
@@ -397,7 +420,7 @@ class Boundary(object):
 
     def give_spd(self, area_xmin, area_xmax, area_ymin, area_ymax, grid_nx, grid_ny, layers, layers_bot, strt, stress_periods):
         self.spd = line_boundary_interpolation.give_SPD(points=self.points_xy if self.data_given_at == 'points' else [self.boundary_line[0]],
-                                                        point_vals=self.points_values if self.data_given_at == 'points' else self.value,
+                                                        point_vals=self.points_properties_dic if self.data_given_at == 'points' else self.properties_dic,
                                                         line=self.boundary_line,
                                                         stress_period_list=stress_periods,
                                                         interract_layers=layers if len(layers)>0 else range(len(layers_bot)),
@@ -407,6 +430,7 @@ class Boundary(object):
                                                         ymax=area_ymax,
                                                         nx=grid_nx,
                                                         ny=grid_ny,
+                                                        boundary_type=self.type,
                                                         layers_botm=layers_bot,
                                                         strt_head_mode=strt)
         return self.spd
@@ -423,6 +447,13 @@ class Observation_points(object):
         self.properties = [Property(i, base_url) for i in jsonDataObservationPoints['properties']] if len(jsonDataObservationPoints['properties']) > 0 else None
         self.x = float(jsonDataObservationPoints['point']['x'])
         self.y = float(jsonDataObservationPoints['point']['y'])
+        self.properties_dic = {}
+        for prop in self.properties:
+            self.properties_dic[prop.property_type_abr] = []
+        for prop in self.properties_dic:
+            for i in self.properties:
+                if i.property_type_abr == prop:
+                    self.properties_dic[prop] += [j.data for j in i.values]
 
 class Property(object):
     """
