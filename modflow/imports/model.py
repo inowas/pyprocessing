@@ -44,7 +44,7 @@ class Model(object):
                            for i in self.jsonData['boundaries']]
 
         if 'strt_head_mode' in request_data:
-            self.strt_head_mode = 'simple'
+            self.strt_head_mode = request_data['strt_head_mode']
         self.strt_head_mode = 'simple'
 
     def set_properties(self):
@@ -60,17 +60,10 @@ class Model(object):
                                          ymin=self.area.ymin,
                                          ymax=self.area.ymax)
         print 'IBOUND array is created'
-        self.layers_properties = {}
-#        for i, prop in enumerate(self.soil_model.geological_layers[1].properties):
-#            self.layers_properties[prop.property_type_abr] = [layer.properties[i].values[0].data
-#                                                              for layer
-#                                                              in self.soil_model.geological_layers]
 
         self.botm = [layer.botm[0] for layer in self.soil_model.geological_layers]
-        for i in self.soil_model.geological_layers:
-            if len(i.top) > 0:
-                self.top = i.top[0]
-#        self.top = self.soil_model.geological_layers[0].top[0]
+        self.top = self.soil_model.geological_layers[0].top[0]
+        self.hc = [layer.hc for layer in self.soil_model.geological_layers]
 
         print 'Layers properties are written'
         self.GHB_SPD = [boundary.give_spd(area_xmin=self.area.xmin,
@@ -88,7 +81,7 @@ class Model(object):
             for i in range(len(self.GHB_SPD) - 1):
                 for j in self.GHB_SPD[i]:
                     dic[j] = self.GHB_SPD[0][j] + self.GHB_SPD[i + 1][j]
-            self.GHB_SPD = dic
+            self.GHB_SPD = dic  if len(self.GHB_SPD) > 1 else self.GHB_SPD[0]
 
         self.CHD_SPD = [boundary.give_spd(area_xmin=self.area.xmin,
                                            area_xmax=self.area.xmax,
@@ -107,9 +100,30 @@ class Model(object):
             for i in range(len(self.CHD_SPD) - 1):
                 for j in self.CHD_SPD[i]:
                     dic[j] = self.CHD_SPD[0][j] + self.CHD_SPD[i + 1][j]
-            self.CHD_SPD = dic
+            self.CHD_SPD = dic if len(self.CHD_SPD) > 1 else self.CHD_SPD[0]
+                
+        self.RIV_SPD = [boundary.give_spd(area_xmin=self.area.xmin,
+                                           area_xmax=self.area.xmax,
+                                           area_ymin=self.area.ymin,
+                                           area_ymax=self.area.ymax,
+                                           grid_nx=self.jsonData['grid_size']['n_x'],
+                                           grid_ny=self.jsonData['grid_size']['n_y'],
+                                           layers=[i for i in range(len(self.soil_model.geological_layers))
+                                                   if self.soil_model.geological_layers[i].id in boundary.interracted_layers_ids],
+                                           layers_bot=self.botm,
+                                           strt=self.strt_head_mode,
+                                           stress_periods=range(len(self.calculation_properties.stress_periods)))
+                                           for boundary in self.boundaries
+                                           if boundary.type == 'RIV']
 
 
+        if len(self.RIV_SPD) > 0:
+            dic = {}
+            for i in range(len(self.RIV_SPD) - 1):
+                for j in self.RIV_SPD[i]:
+                    dic[j] = self.RIV_SPD[0][j] + self.RIV_SPD[i + 1][j]
+            self.RIV_SPD = dic if len(self.RIV_SPD) > 1 else self.RIV_SPD[0] 
+        
         self.WEL_SPD = well_spd.give_well_spd(xmin=self.area.xmin,
                                                xmax=self.area.xmax,
                                                ymin=self.area.ymin,
@@ -127,17 +141,16 @@ class Model(object):
         print 'Stress period data objects are created'
 
         self.NSTP = [i.nstp for i in self.calculation_properties.stress_periods]
-        self.NSTP = [30,27,30]
         self.PERLEN = [i.length for i in self.calculation_properties.stress_periods]
         self.STEADY = [i.steady for i in self.calculation_properties.stress_periods]
         if self.strt_head_mode == 'warmed_up':
             self.STEADY = [True] + self.STEADY
-            self.PERLEN = [100] + self.PERLEN
+            self.PERLEN = [1] + self.PERLEN
             self.NSTP = [1] + self.NSTP
         print 'PERLEN: ' + str(self.PERLEN)
         print 'STEADY: ' + str(self.STEADY)
         print 'NSTP: ' + str(self.NSTP)
-
+        
     def run_model(self, workspace):
         MF = flopy.modflow.Modflow(self.id, exe_name='mf2005',
                                    version='mf2005', model_ws=workspace)
@@ -156,14 +169,14 @@ class Model(object):
                                                perlen=self.PERLEN)
         BAS_PACKAGE = flopy.modflow.ModflowBas(MF,
                                                ibound=self.IBOUND,
-                                               strt=np.mean(np.array(self.layers_properties['et'][0] if 'et' in self.layers_properties else 100)),
+                                               strt=np.mean(self.top),
                                                hnoflo=-9999)
         OC_PACKAGE = flopy.modflow.ModflowOc(MF)
         LPF_PACKAGE = flopy.modflow.ModflowLpf(MF,
-                                               hk=self.layers_properties['hc'] if 'hc' in self.layers_properties else 1.0,
-                                               hani=self.layers_properties['ha'] if 'ha' in self.layers_properties else 1.0,
-                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else 1.0,
-                                               laytyp=1)
+                                               hk=self.hc,
+#                                               hani=self.layers_properties['ha'] if 'ha' in self.layers_properties else 1.0,
+#                                               vka=self.layers_properties['va'] if 'va' in self.layers_properties else 1.0,
+                                               laytyp=0)
         PCG_PACKAGE = flopy.modflow.ModflowPcg(MF,
                                                mxiter=900,
                                                iter1=900)
@@ -171,12 +184,19 @@ class Model(object):
         if len(self.CHD_SPD) > 0:
             CHD = flopy.modflow.ModflowChd(MF,
                                            stress_period_data=self.CHD_SPD)
+#            CHD.plot()
         if len(self.GHB_SPD) > 0:
-            CHD = flopy.modflow.ModflowChd(MF,
+            GHB = flopy.modflow.ModflowGhb(MF,
                                            stress_period_data=self.GHB_SPD)
+#            GHB.plot()
+        if len(self.RIV_SPD) > 0:
+            RIV = flopy.modflow.ModflowRiv(MF,
+                                           stress_period_data=self.RIV_SPD)
+#            RIV.plot()
         if len(self.WEL_SPD) > 0:
             WEL = flopy.modflow.ModflowWel(MF,
                                            stress_period_data=self.WEL_SPD)
+#            WEL.plot()
         # Write Modflow input files and run the model
         MF.write_input()
         print 'Modflow files are written'
@@ -258,7 +278,6 @@ class Stress_period(object):
     Stress period class. ---> Calculation properties.stress_periods
     """
     def __init__(self, jsonDataStress):
-        print jsonDataStress
         begin_raw = str(jsonDataStress['dateTimeBegin']['date'])
         end_raw = str(jsonDataStress['dateTimeEnd']['date'])
         self.dateTimeBegin = datetime.datetime.strptime(begin_raw,
@@ -300,7 +319,9 @@ class Geological_layer(object):
         self.hc = [i.values[0].data
                     for i
                     in self.properties
-                    if i.property_type_abr == 'hc']
+                    if i.property_type_abr == 'hc'][0]
+#        for i in self.properties:
+#            print i.property_type_abr 
 #        self.vka = [i.values[0].data
 #                    for i
 #                    in self.properties
@@ -313,6 +334,9 @@ class Geological_layer(object):
                     for i
                     in self.properties
                     if i.property_type_abr == 'et']
+        if len(self.top) == 0:
+            self.top = -99999
+
         self.botm = [i.values[0].data
                      for i
                      in self.properties
@@ -353,7 +377,6 @@ class Boundary(object):
                 for i in self.properties:
                     if i.property_type_abr == prop:
                         self.properties_dic[prop].append([j.data for j in i.values])
-            print self.properties_dic
 
         if 'observation_points' in jsonData and len(jsonData['observation_points']) > 0:
             # Observation points
@@ -369,11 +392,10 @@ class Boundary(object):
                     for prop in self.observation_points[point].properties_dic:
                         self.points_properties_dic[prop] = []
                 for i in self.points_properties_dic:
-                    self.points_properties_dic[i].append( self.observation_points[point].properties_dic[i])
+                    self.points_properties_dic[i].append(self.observation_points[point].properties_dic[i])
 
                 self.points_xy.append([self.observation_points[point].x,
                                        self.observation_points[point].y])
-            print self.points_properties_dic
 
         if self.type == 'WEL':
             self.x = float(jsonData['point']['x'])
@@ -462,7 +484,7 @@ class Property(object):
     def __init__(self, jsonDataProperty, base_url):
         self.id = str(jsonDataProperty['id'])
         self.property_type_abr = str(jsonDataProperty['property_type']['abbreviation'])
-        self.values = [Value(i, base_url) for i in jsonDataProperty['values']] if len(jsonDataProperty['values']) > 0 else None
+        self.values = [Value(i, base_url) for i in jsonDataProperty['values']]
 
 
 class Value(object):
@@ -490,7 +512,7 @@ class Value(object):
             self.data = rasterInfo['data']
         else:
             self.data = None
-
+#        print self.data
         self.datetime = str(jsonDataValue['datetime']) if 'datetime' in jsonDataValue else None
 
 

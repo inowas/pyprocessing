@@ -3,6 +3,8 @@
 import sys
 import Modflow
 
+#usage: python modflowCalculation.py http://app.dev.inowas.com blabla data calculate.json 
+
 base_url = sys.argv[1]    # this contains a string, eg. http://localhost:8090 or http://app.dev.inowas.com
 executable = sys.argv[2]  # this contains a string of the executable name, eg. mf2005 of /usr/local/lib/mf2005
 workspace = sys.argv[3]   # this contains the path to the project, eg. ../data/modflow/123112443-1112212-3433317/

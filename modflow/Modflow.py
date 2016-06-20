@@ -39,27 +39,6 @@ import demjson
 
 from imports import model
 
-# Sample input data ###########################################################
-sample_data = {"model_id": "94c48987-7d4f-46ac-9eb8-22e2d4a12d18",
-               "calculate": True,
-               "nx": 50,
-               "ny": 50,
-               "give_raster": True,
-               "time_steps_of_interest": [10, 20],
-               "layer_of_interest": 1,
-               "operation": "mean",
-               "base_url": "http://app.dev.inowas.com",
-               "strt_head_mode": "warmed_up",
-               "prior_steady_period_lenght" : 1,
-               "nstp": [30, 27, 30],
-               "packages": ["CHD", "WEL"]}
-request_data = sample_data
-
-working_directory = '../data/modflow/'
-#request_data = demjson.decode(str(sys.argv[1]))
-###############################################################################
-
-
 class Modflow:
 
     _base_url = ""
@@ -122,7 +101,7 @@ class Modflow:
 
             m = model.Model()
             m.setFromJson(data)  # here is injected and treated an bject or array
-            m.set_properties(data['nx'], data['ny'])  # this could be loaded from model
+            m.set_properties()  # this could be loaded from model
             m.run_model(self._workspace)
         except:
             print "Unexpected error:", sys.exc_info()[0]
@@ -134,16 +113,16 @@ class Modflow:
         try:
             self.self_check_result()
             data = self.read_from_file(self._input_file)
-            Modflow.read_output(self._workspace, data)
+            result = Modflow.read_output(self._workspace, data)
+            print result
         except:
             print "Unexpected error:", sys.exc_info()[0]
             raise
         else:
-            print 'model created, calculated and saved'
+            print 'model results were written'
 
     @staticmethod
-    def read_output(workspace, data):
-
+    def read_output(workspace, data):     
         try:
             output_type = data['output_type']
         except KeyError:
@@ -159,24 +138,30 @@ class Modflow:
         try:
             layer = data['layer']
         except KeyError:
-            # Key is not present
+            raise
             return
 
         if output_type == 'raster':
-
             try:
                 operation = data['operation']
             except KeyError:
-                # Key is not present
+                raise
                 return
 
             try:
                 timesteps = data['time_steps']
             except KeyError:
-                # Key is not present
+                raise
                 return
 
-            return Modflow.read_output_raster(workspace, model_id, timesteps, layer, operation)
+            try:
+                stress_periods = data['stress_periods']
+            except KeyError:
+                raise
+                return
+
+            return Modflow.read_output_raster(workspace, model_id, timesteps,
+                                                stress_periods, layer, operation)
 
         elif output_type == 'time_series':
 
@@ -184,21 +169,28 @@ class Modflow:
                 cell_x = data['cell_x']
                 cell_y = data['cell_y']
             except KeyError:
-                # Key is not present
+                raise
                 return
 
             return Modflow.read_output_time_series(workspace, model_id, layer, cell_x, cell_y)
 
     @staticmethod
-    def read_output_raster(workspace, name, timesteps, layer, operation):
+    def read_output_raster(workspace, name, timesteps, stress_periods, layer, operation):
+        print workspace, name, timesteps, stress_periods, layer, operation
         try:
             possible_operations = ['mean', 'raw', 'delta', 'max', 'min', 'standard_deviation']
             if operation not in possible_operations:
                 print 'requested operation is not available'
                 return
-
+                
+            if len(timesteps) != len(stress_periods):
+                print 'incorrectly specified times'
+                return
+                
             head_file_objects = flopy.utils.HeadFile(os.path.join(workspace, name + '.hds'))
-            heads_ts = [head_file_objects.get_data(totim=timestep) for timestep in timesteps]
+            heads_ts = [head_file_objects.get_data(kstpkper=(timesteps[i], stress_periods[i]))
+                        for i in range(len(timesteps))]
+
             heads_ts_array = np.array([heads[layer].tolist() for heads in heads_ts])
 
             if operation == 'mean':
@@ -222,4 +214,4 @@ class Modflow:
     @staticmethod
     def read_output_time_series(workspace, name, layer, cell_x, cell_y):
         hds = flopy.utils.HeadFile(os.path.join(workspace, name + '.hds'))
-        return hds.get_ts((layer - 1, cell_x - 1, cell_y - 1))
+        return hds.get_ts((layer, cell_x, cell_y))
