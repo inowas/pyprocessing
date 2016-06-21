@@ -58,16 +58,36 @@ class RasterImage(object):
         else:
             print 'Default name is used'
             self._name = 'image'
-
+    
+        self.min_val = 5
+        self.min_real_value = False
+        self.max_val = 95
+        self.max_real_value = False
+        
         if 'min' in json_dict:
-            self.min_val = json_dict['min']
+            if type(json_dict['min']) is float or type(json_dict['min']) is int:
+                self.min_val = json_dict['min']
+                self.min_real_value = True
+            elif json_dict['min'][-1] == '%':
+                self.min_val = float(json_dict['min'][:-1])
+                self.min_real_value = False
+            else:
+                print 'Default 5 percentile is used for min boundary'
         else:
-            self.min_val = -100.
+            print 'Default 5 percentile is used for min boundary'
 
         if 'max' in json_dict:
-            self.max_val = json_dict['max']
+            if type(json_dict['max']) is float or type(json_dict['max']) is int:
+                self.max_val = json_dict['max']
+                self.max_real_value = True
+            elif json_dict['max'][-1] == '%':
+                self.max_val = float(json_dict['max'][:-1])
+                self.max_real_value = False
+            else:
+                print 'Default 95 percentile is used for max boundary'
         else:
-            self.max_val = 0.
+            print 'Default 95 percentile is used for max boundary'
+
 
         if 'color_scheme' in json_dict:
             self._color_scheme = json_dict['color_scheme']
@@ -81,11 +101,13 @@ class RasterImage(object):
         self.fileName = self.writeRaster(self._data, self._nodata,
                                          self._workspace,
                                          self._name, self.min_val,
-                                         self.max_val, self._color_scheme,)
+                                         self.max_val, self.min_real_value,
+                                         self.max_real_value, self._color_scheme,)
         return self.fileName
 
     @staticmethod
-    def writeRaster(data, nodata, workspace, name, min_val, max_val, color_scheme='jet'):
+    def writeRaster(data, nodata, workspace, name, min_val, max_val,
+                    min_real_value, max_real_value, color_scheme='jet'):
 
         try:
             data = np.array(data)
@@ -111,10 +133,11 @@ class RasterImage(object):
         for i in nodata:
             alfa[data == i] = 0
             no_nodata[data == i] = np.nan
-
-#        norm = plt.Normalize(vmin=np.nanpercentile(no_nodata, min_percentile),
-#                             vmax=np.nanpercentile(no_nodata, max_percentile))
-        norm = plt.Normalize(vmin=min_val, vmax=max_val)
+            
+        max_bound = max_val if max_real_value else np.nanpercentile(no_nodata, max_val)
+        min_bound = min_val if min_real_value else np.nanpercentile(no_nodata, min_val)
+        print max_bound, min_bound
+        norm = plt.Normalize(vmin=min_bound, vmax=max_bound)
         if color_scheme == 'jet':
             colors = plt.cm.jet(norm(data))
         elif color_scheme == 'gist_earth':
@@ -130,7 +153,6 @@ class RasterImage(object):
                                 colors[:, :, 1],
                                 colors[:, :, 2],
                                 alfa)) * 255.999) .astype(np.uint8)
-        print min_val, max_val
         print rgb_uint8
         
         img = Image.fromarray(rgb_uint8)
