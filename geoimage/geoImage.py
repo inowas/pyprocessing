@@ -59,15 +59,15 @@ class RasterImage(object):
             print 'Default name is used'
             self._name = 'image'
 
-        if 'min_percentile' in json_dict:
-            self._min_percentile = json_dict['min_percentile']
+        if 'min' in json_dict:
+            self.min_val = json_dict['min']
         else:
-            self._min_percentile = 5.
+            self.min_val = -100.
 
-        if 'max_percentile' in json_dict:
-            self._max_percentile = json_dict['max_percentile']
+        if 'max' in json_dict:
+            self.max_val = json_dict['max']
         else:
-            self._max_percentile = 95.
+            self.max_val = 0.
 
         if 'color_scheme' in json_dict:
             self._color_scheme = json_dict['color_scheme']
@@ -80,14 +80,12 @@ class RasterImage(object):
     def makeImage(self):
         self.fileName = self.writeRaster(self._data, self._nodata,
                                          self._workspace,
-                                         self._name, self._color_scheme,
-                                         self._min_percentile,
-                                         self._max_percentile)
+                                         self._name, self.min_val,
+                                         self.max_val, self._color_scheme,)
         return self.fileName
 
     @staticmethod
-    def writeRaster(data, nodata, workspace, name, color_scheme='jet',
-                    min_percentile=5, max_percentile=95):
+    def writeRaster(data, nodata, workspace, name, min_val, max_val, color_scheme='jet'):
 
         try:
             data = np.array(data)
@@ -114,8 +112,9 @@ class RasterImage(object):
             alfa[data == i] = 0
             no_nodata[data == i] = np.nan
 
-        norm = plt.Normalize(vmin=np.nanpercentile(no_nodata, min_percentile),
-                             vmax=np.nanpercentile(no_nodata, max_percentile))
+#        norm = plt.Normalize(vmin=np.nanpercentile(no_nodata, min_percentile),
+#                             vmax=np.nanpercentile(no_nodata, max_percentile))
+        norm = plt.Normalize(vmin=min_val, vmax=max_val)
         if color_scheme == 'jet':
             colors = plt.cm.jet(norm(data))
         elif color_scheme == 'gist_earth':
@@ -131,7 +130,9 @@ class RasterImage(object):
                                 colors[:, :, 1],
                                 colors[:, :, 2],
                                 alfa)) * 255.999) .astype(np.uint8)
-
+        print min_val, max_val
+        print rgb_uint8
+        
         img = Image.fromarray(rgb_uint8)
         fileName = os.path.join(workspace, name + '.png')
         img.save(fileName)

@@ -19,8 +19,8 @@ class Test_geoimage(unittest.TestCase):
         self.r.makeImage()
 
     def tearDown(self):
-        if os.path.exists(self.fileName):
-            os.remove(self.fileName)
+#        if os.path.exists(self.fileName):
+#            os.remove(self.fileName)
         self.r = None
         self.fileName = None
 
