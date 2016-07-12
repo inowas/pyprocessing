@@ -156,7 +156,7 @@ class RasterImage(object):
         print rgb_uint8
         
         img = Image.fromarray(rgb_uint8)
-        fileName = os.path.join(workspace, name + '.png')
+        fileName = os.path.join(workspace, name)
         img.save(fileName)
         print 'Raster image is created ' + fileName
         return 'Raster image is created ' + fileName
