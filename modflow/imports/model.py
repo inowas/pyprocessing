@@ -204,24 +204,6 @@ class Model(object):
         print 'Model calculation started'
         MF.run_model()
         print 'Model calculation finished'
-    def create_phantomes(self, phantome_wells):
-        # Stuff for optimization comes here
-        self.phantom_wells = [Phantome_well[i] for i in phantome_wells]
-        self.phantome_SPD = {}
-
-
-
-class Phantome_well(object):
-    def __init__(self):
-        self.x
-        self.y
-        self.row
-        self.column
-        self.layer
-        self.rate
-
-    def give_SPD_singe(self):
-        return [self.layer, self.row, self.column, self.rate]
 
 
 class Calculation_properties(object):

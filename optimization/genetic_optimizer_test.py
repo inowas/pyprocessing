@@ -16,15 +16,11 @@ import os
 import shutil
 import numpy as np
 from subprocess import check_output
-
-# Import flopy
 import flopy
 
-# Set the name of the path to the model working directory
 dirname = "P4-4_Hubbertville"
 datapath = os.getcwd()
 modelpath = os.path.join(datapath, dirname)
-# Now let's check if this directory exists.  If not, then we will create it.
 if os.path.exists(modelpath):
     pass
 else:
@@ -52,6 +48,35 @@ IBOUND[:, -1, :] = -1
 STRT = 1010 * np.ones((NLAY, NROW, NCOL), dtype=np.float32)
 STRT[:, 0, :] = 1000.
 STRT[:, -1, :] = 1000.
+
+dirname = "P4-4_Hubbertville"
+datapath = os.getcwd()
+modelpath = os.path.join(datapath, dirname)
+modelname = 'P4-4'
+timesteps = [1]
+layer = 0
+MF = flopy.modflow.Modflow(modelname, exe_name='mf2005', version='mf2005', model_ws=modelpath)
+DIS_PACKAGE = flopy.modflow.ModflowDis(MF, NLAY, NROW, NCOL, delr=DELR, delc=DELC, top=TOP, botm=BOTM[1:], laycbd=0)
+BAS_PACKAGE = flopy.modflow.ModflowBas(MF, ibound=IBOUND, strt=STRT)
+LPF_PACKAGE = flopy.modflow.ModflowLpf(MF, laytyp=1, hk=HK, vka=VKA)
+RCH_PACKAGE = flopy.modflow.ModflowRch(MF, rech=RCH)
+PCG_PACKAGE = flopy.modflow.ModflowPcg(MF, mxiter=900, iter1=900)
+OC_PACKAGE = flopy.modflow.ModflowOc(MF)
+WEL_PACKAGE = flopy.modflow.ModflowWel(MF, stress_period_data=[0,5,4,WELLQ])
+modelfiles = os.listdir(modelpath)
+for filename in modelfiles:
+    f = os.path.join(modelpath, filename)
+    if modelname in f:
+        try:
+            os.remove(f)
+        except:
+            pass
+
+MF.write_input()
+silent = False  #  Print model output to screen?
+pause = False   #  Require user to hit enter? Doesn't mean much in Ipython notebook
+report = True   #  Store the output from the model in buff
+success, buff = MF.run_model(silent=silent, pause=pause, report=report)
 
 
 def run_ref_model(plot_heads=True):
@@ -164,6 +189,7 @@ IND_SIZE=10
 def generate_xyq(ranges):
     xyq= [random.randint(0,ranges[0]), random.randint(0,ranges[1]), random.randint(ranges[2]/injection_step,ranges[3]/injection_step) * injection_step]
     return xyq
+    
 def mutate(individual):
     num = random.randint(-1,1)
     nxtCol = individual[0] + num if individual[0] + num <= NCOL-1 else 0
