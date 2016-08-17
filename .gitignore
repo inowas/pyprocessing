@@ -33,3 +33,4 @@ composer.lock
 *.pcg
 *.rch
 *.wel
+*.chk
