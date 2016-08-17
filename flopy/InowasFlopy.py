@@ -33,7 +33,8 @@ class InowasFlopy:
         self._api_key = api_key
         self._model_id = model_id
 
-        self._packages = self.read_json_from_api(api_url+'/modflowmodel/'+model_id+'/packages.json', api_key)
+        print 'Requesting general package data from: %s' % self.get_packages_url(self._api_url, self._model_id)
+        self._packages = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
         self.read_packages_from_api(self._packages)
         self.create_model(self._packages, self._packageContent)
 
@@ -43,16 +44,24 @@ class InowasFlopy:
 
     def read_packages_from_api(self, packages):
         for package in packages:
+            print 'Requesting data of %s-Package from: %s' % (
+                package, self.get_package_url(self._api_url, self._model_id, package)
+            )
+
             self._packageContent[package] = self.read_json_from_api(
-                self._api_url+'/modflowmodel/'+self._model_id+'/packages/'+package+'.json',
+                self.get_package_url(self._api_url, self._model_id, package),
                 self._api_key
             )
 
     def create_model(self, packages, package_content):
         for package in packages:
+            print 'Create Flopy Package: %s' % package
             self.create_package(package, package_content[package])
 
+        print 'Write input files'
         self._mf.write_input()
+
+        print 'Run the model'
         self._mf.run_model()
 
     def create_package(self, name, content):
@@ -174,8 +183,17 @@ class InowasFlopy:
 
     @staticmethod
     def read_json_from_api(url, api_key):
-        print url
         request = urllib2.Request(url)
         request.add_header('X-AUTH-TOKEN', api_key)
         response = urllib2.urlopen(request)
         return demjson.decode(response.read())
+
+    @staticmethod
+    def get_packages_url(api_url, model_id):
+        url = '%s/modflowmodel/%s/packages.json' % (api_url, model_id)
+        return url
+
+    @staticmethod
+    def get_package_url(api_url, model_id, package):
+        url = '%s/modflowmodel/%s/packages/%s.json' % (api_url, model_id, package)
+        return url
