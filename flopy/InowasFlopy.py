@@ -72,7 +72,7 @@ class InowasFlopy:
                 os.makedirs(model_ws)
 
             self._mf = mf.Modflow(
-                modelname=content['modelname'].replace(" ", "_"),
+                modelname=content['modelname'],
                 exe_name=content['exe_name'],
                 version=content['version'],
                 model_ws=model_ws
@@ -165,15 +165,16 @@ class InowasFlopy:
             )
         if name == 'oc':
             mf.ModflowOc(
-                self._mf,
-                ihedfm=content['ihedfm'],
-                iddnfm=content['iddnfm'],
-                chedfm=content['chedfm'],
-                cddnfm=content['cddnfm'],
-                cboufm=content['cboufm'],
-                compact=content['compact'],
-                extension=content['extension'],
-                unitnumber=content['unitnumber']
+             self._mf,
+             ihedfm=content['ihedfm'],
+             iddnfm=content['iddnfm'],
+             chedfm=content['chedfm'],
+             cddnfm=content['cddnfm'],
+             cboufm=content['cboufm'],
+             compact=content['compact'],
+             stress_period_data=self.get_stress_period_data(content['stress_period_data']),
+             extension=content['extension'],
+             unitnumber=content['unitnumber']
             )
 
     @staticmethod
@@ -197,3 +198,11 @@ class InowasFlopy:
     def get_package_url(api_url, model_id, package):
         url = '%s/modflowmodel/%s/packages/%s.json' % (api_url, model_id, package)
         return url
+
+    @staticmethod
+    def get_stress_period_data(stress_periods):
+        stress_period_data = {}
+        for stress_period in stress_periods:
+            stress_period_data[stress_period['stressPeriod'], stress_period['timeStep']] = stress_period['type']
+
+        return stress_period_data
