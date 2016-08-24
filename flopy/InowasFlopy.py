@@ -165,16 +165,37 @@ class InowasFlopy:
             )
         if name == 'oc':
             mf.ModflowOc(
-             self._mf,
-             ihedfm=content['ihedfm'],
-             iddnfm=content['iddnfm'],
-             chedfm=content['chedfm'],
-             cddnfm=content['cddnfm'],
-             cboufm=content['cboufm'],
-             compact=content['compact'],
-             stress_period_data=self.get_stress_period_data(content['stress_period_data']),
-             extension=content['extension'],
-             unitnumber=content['unitnumber']
+                self._mf,
+                ihedfm=content['ihedfm'],
+                iddnfm=content['iddnfm'],
+                chedfm=content['chedfm'],
+                cddnfm=content['cddnfm'],
+                cboufm=content['cboufm'],
+                compact=content['compact'],
+                stress_period_data=self.get_stress_period_data(content['stress_period_data']),
+                extension=content['extension'],
+                unitnumber=content['unitnumber']
+            )
+        if name == 'riv':
+            mf.ModflowRiv(
+                self._mf,
+                ipakcb=content['ipakcb'],
+                stress_period_data=content['stress_period_data'],
+                dtype=content['dtype'],
+                extension=content['extension'],
+                unitnumber=content['unitnumber'],
+                options=content['options'],
+                naux=content['naux']
+            )
+        if name == 'wel':
+            mf.ModflowWel(
+                self._mf,
+                ipakcb=content['ipakcb'],
+                stress_period_data=content['stress_period_data'],
+                dtype=content['dtype'],
+                extension=content['extension'],
+                unitnumber=content['unitnumber'],
+                options=content['options']
             )
 
     @staticmethod
