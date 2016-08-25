@@ -14,6 +14,7 @@ class InowasFlopy:
     _api_url = ""
     _data_folder = ""
     _model_id = ""
+    _commands = []
     _packages = []
     _packageContent = {}
     _mf = None
@@ -33,10 +34,24 @@ class InowasFlopy:
         self._api_key = api_key
         self._model_id = model_id
 
-        print 'Requesting general package data from: %s' % self.get_packages_url(self._api_url, self._model_id)
-        self._packages = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
-        self.read_packages_from_api(self._packages)
-        self.create_model(self._packages, self._packageContent)
+        print 'Requesting cmd package from: %s' % self.get_packages_url(self._api_url, self._model_id)
+        self._commands = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
+
+        if self._commands['loadFrom'] == 'api':
+            self.read_packages_from_api(self._commands['packages'])
+            self.create_model(self._packages, self._packageContent)
+
+            if self._commands['writeInput']:
+                self.write_input_model()
+
+        if self._commands['loadFrom'] == 'nam':
+            self.load_model()
+
+        if self._commands['check']:
+            self.check_model()
+
+        if self._commands['run']:
+            self.run_model()
 
     def read_packages(self, packages):
         for package in packages:
@@ -58,15 +73,31 @@ class InowasFlopy:
             print 'Create Flopy Package: %s' % package
             self.create_package(package, package_content[package])
 
+    def write_input_model(self):
         print 'Write input files'
         self._mf.write_input()
 
+    def run_model(self):
         print 'Run the model'
         self._mf.run_model()
 
+    def load_model(self):
+        self.read_packages_from_api(['mf'])
+
+        nam_file = os.path.join(
+            self._data_folder,
+            self._model_id,
+            self._packageContent['mf']['model_ws'],
+            self._packageContent['mf']['modelname'] + '.nam')
+
+        print 'Load model from %s' % nam_file
+        self._mf = mf.Modflow.load(nam_file)
+
+    def check_model(self):
+        self._mf.check()
+
     def create_package(self, name, content):
         if name == 'mf':
-
             model_ws = os.path.realpath(os.path.join(self._data_folder, self._model_id, content['model_ws']))
             if not os.path.exists(model_ws):
                 os.makedirs(model_ws)
@@ -221,7 +252,7 @@ class InowasFlopy:
 
     @staticmethod
     def get_packages_url(api_url, model_id):
-        url = '%s/modflowmodel/%s/packages.json' % (api_url, model_id)
+        url = '%s/modflowmodel/%s/flopy.json' % (api_url, model_id)
         return url
 
     @staticmethod
