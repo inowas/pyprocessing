@@ -197,6 +197,15 @@ class InowasFlopy:
                 unitnumber=content['unitnumber'],
                 options=content['options']
             )
+        if name == 'rch':
+            mf.ModflowRch(
+                self._mf,
+                ipakcb=content['ipakcb'],
+                nrchop=content['nrchop'],
+                rech=content['rech'],
+                extension=content['extension'],
+                unitnumber=content['unitnumber']
+            )
 
     @staticmethod
     def read_json_from_file(filename):
