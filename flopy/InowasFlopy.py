@@ -2,7 +2,9 @@
 
 import demjson
 import flopy.modflow as mf
+import flopy.utils as fu
 import os
+import urllib
 import urllib2
 
 
@@ -37,14 +39,15 @@ class InowasFlopy:
         print 'Requesting cmd package from: %s' % self.get_packages_url(self._api_url, self._model_id)
         self._commands = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
 
-        if self._commands['loadFrom'] == 'api':
-            self.read_packages_from_api(self._commands['packages'])
+        if self._commands['load_from'] == 'api':
+            self._packages = self._commands['packages']
+            self.read_packages_from_api(self._packages)
             self.create_model(self._packages, self._packageContent)
 
-            if self._commands['writeInput']:
+            if self._commands['write_input']:
                 self.write_input_model()
 
-        if self._commands['loadFrom'] == 'nam':
+        if self._commands['load_from'] == 'nam':
             self.load_model()
 
         if self._commands['check']:
@@ -52,6 +55,17 @@ class InowasFlopy:
 
         if self._commands['run']:
             self.run_model()
+
+        if self._commands['get_data']:
+            if 'totim' in self._commands['get_data']:
+                totim = self._commands['get_data']['totim']
+                heads = self.get_data(totim=totim)
+                self.submit_heads(
+                    self.get_submit_heads_url(self._api_url, self._model_id),
+                    self._api_key,
+                    heads=heads,
+                    totim=totim
+                )
 
     def read_packages(self, packages):
         for package in packages:
@@ -84,17 +98,38 @@ class InowasFlopy:
     def load_model(self):
         self.read_packages_from_api(['mf'])
 
-        nam_file = os.path.join(
+        workspace = os.path.join(
             self._data_folder,
             self._model_id,
-            self._packageContent['mf']['model_ws'],
+            self._packageContent['mf']['model_ws']
+        )
+
+        nam_file = os.path.join(
+            workspace,
             self._packageContent['mf']['modelname'] + '.nam')
 
         print 'Load model from %s' % nam_file
-        self._mf = mf.Modflow.load(nam_file)
+        self._mf = mf.Modflow.load(
+            nam_file,
+            version=self._packageContent['mf']['version'],
+            exe_name=self._packageContent['mf']['exe_name'],
+            model_ws=workspace
+        )
 
     def check_model(self):
         self._mf.check()
+
+    def get_data(self, totim=0):
+        if 'mf' not in self._packageContent:
+            self.read_packages_from_api(['mf'])
+
+        head_file = os.path.join(
+            self._data_folder,
+            self._model_id,
+            self._packageContent['mf']['model_ws'],
+            self._packageContent['mf']['modelname'] + '.hds')
+
+        return fu.HeadFile(head_file).get_data(totim=totim)
 
     def create_package(self, name, content):
         if name == 'mf':
@@ -251,13 +286,27 @@ class InowasFlopy:
         return demjson.decode(response.read())
 
     @staticmethod
+    def submit_heads(url, api_key, heads, totim):
+        print 'Post head-data of totim=%s to %s' % (totim, url)
+        request = urllib2.Request(url)
+        request.data = urllib.urlencode({'heads': demjson.encode(heads.tolist()), 'totim': totim})
+        request.add_header('X-AUTH-TOKEN', api_key)
+        response = urllib2.urlopen(request)
+        print response.read()
+
+    @staticmethod
     def get_packages_url(api_url, model_id):
-        url = '%s/modflowmodel/%s/flopy.json' % (api_url, model_id)
+        url = '%s/modflowmodels/%s/flopy.json' % (api_url, model_id)
         return url
 
     @staticmethod
     def get_package_url(api_url, model_id, package):
-        url = '%s/modflowmodel/%s/packages/%s.json' % (api_url, model_id, package)
+        url = '%s/modflowmodels/%s/packages/%s.json' % (api_url, model_id, package)
+        return url
+
+    @staticmethod
+    def get_submit_heads_url(api_url, model_id):
+        url = '%s/modflowmodels/%s/heads.json' % (api_url, model_id)
         return url
 
     @staticmethod
