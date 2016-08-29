@@ -3,7 +3,6 @@
 import demjson
 import flopy.modflow as mf
 import flopy.utils as fu
-import matplotlib.pyplot as plt
 import os
 import urllib
 import urllib2
