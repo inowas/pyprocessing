@@ -3,6 +3,7 @@
 import demjson
 import flopy.modflow as mf
 import flopy.utils as fu
+import matplotlib.pyplot as plt
 import os
 import urllib
 import urllib2
@@ -128,6 +129,14 @@ class InowasFlopy:
             self._model_id,
             self._packageContent['mf']['model_ws'],
             self._packageContent['mf']['modelname'] + '.hds')
+
+        times = fu.HeadFile(head_file).get_times()
+        i = 0
+        while i < len(times):
+            if times[i] > totim:
+                totim = times[i]
+                break
+            i += 1
 
         return fu.HeadFile(head_file).get_data(totim=totim)
 
