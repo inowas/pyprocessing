@@ -54,18 +54,29 @@ class InowasFlopy:
             self.check_model()
 
         if self._commands['run']:
+            print self._commands
             self.run_model()
 
-        if self._commands['get_data']:
-            if 'totim' in self._commands['get_data']:
-                totim = self._commands['get_data']['totim']
-                heads = self.get_data(totim=totim)
-                self.submit_heads(
-                    self.get_submit_heads_url(self._api_url, self._model_id),
-                    self._api_key,
-                    heads=heads,
-                    totim=totim
-                )
+        if self._commands['submit']:
+            if 'totim' in self._commands:
+                if self._commands['totim']:
+                    totim = self.get_valid_totim(self._commands['totim'])
+                    heads = self.get_data(totim=totim)
+                    self.submit_heads(
+                        self.get_submit_heads_url(self._api_url, self._model_id),
+                        self._api_key,
+                        heads=heads,
+                        totim=totim
+                    )
+                else:
+                    times = self.get_times()
+                    for time in times:
+                        self.submit_heads(
+                            self.get_submit_heads_url(self._api_url, self._model_id),
+                            self._api_key,
+                            heads=self.get_data(totim=time),
+                            totim=time
+                        )
 
     def read_packages(self, packages):
         for package in packages:
@@ -129,6 +140,18 @@ class InowasFlopy:
             self._packageContent['mf']['model_ws'],
             self._packageContent['mf']['modelname'] + '.hds')
 
+        return fu.HeadFile(head_file).get_data(totim=totim)
+
+    def get_valid_totim(self, totim=0):
+        if 'mf' not in self._packageContent:
+            self.read_packages_from_api(['mf'])
+
+        head_file = os.path.join(
+            self._data_folder,
+            self._model_id,
+            self._packageContent['mf']['model_ws'],
+            self._packageContent['mf']['modelname'] + '.hds')
+
         times = fu.HeadFile(head_file).get_times()
         i = 0
         while i < len(times):
@@ -137,7 +160,19 @@ class InowasFlopy:
                 break
             i += 1
 
-        return fu.HeadFile(head_file).get_data(totim=totim)
+        return totim
+
+    def get_times(self):
+        if 'mf' not in self._packageContent:
+            self.read_packages_from_api(['mf'])
+
+        head_file = os.path.join(
+            self._data_folder,
+            self._model_id,
+            self._packageContent['mf']['model_ws'],
+            self._packageContent['mf']['modelname'] + '.hds')
+
+        return fu.HeadFile(head_file).get_times()
 
     def create_package(self, name, content):
         if name == 'mf':
