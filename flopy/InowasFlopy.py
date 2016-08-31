@@ -315,6 +315,26 @@ class InowasFlopy:
                 extension=content['extension'],
                 unitnumber=content['unitnumber']
             )
+        if name == 'chd':
+            mf.ModflowChd(
+                self._mf,
+                stress_period_data=content['stress_period_data'],
+                dtype=content['dtype'],
+                options=content['options'],
+                extension=content['extension'],
+                unitnumber=content['unitnumber']
+            )
+
+        if name == 'ghb':
+            mf.ModflowGhb(
+                self._mf,
+                ipakcb=content['ipakcb'],
+                stress_period_data=content['stress_period_data'],
+                dtype=content['dtype'],
+                options=content['options'],
+                extension=content['extension'],
+                unitnumber=content['unitnumber']
+            )
 
     @staticmethod
     def read_json_from_file(filename):
