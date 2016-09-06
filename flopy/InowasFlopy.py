@@ -36,7 +36,7 @@ class InowasFlopy:
         self._api_key = api_key
         self._model_id = model_id
 
-        print 'Requesting cmd package from: %s' % self.get_packages_url(self._api_url, self._model_id)
+        print 'Requesting cmd-Package: \r\n%s' % self.get_packages_url(self._api_url, self._model_id)
         self._commands = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
 
         if self._commands['load_from'] == 'api':
@@ -58,25 +58,14 @@ class InowasFlopy:
             self.run_model()
 
         if self._commands['submit']:
-            if 'totim' in self._commands:
-                if self._commands['totim']:
-                    totim = self.get_valid_totim(self._commands['totim'])
-                    heads = self.get_data(totim=totim)
-                    self.submit_heads(
-                        self.get_submit_heads_url(self._api_url, self._model_id),
-                        self._api_key,
-                        heads=heads,
-                        totim=totim
-                    )
-                else:
-                    times = self.get_times()
-                    for time in times:
-                        self.submit_heads(
-                            self.get_submit_heads_url(self._api_url, self._model_id),
-                            self._api_key,
-                            heads=self.get_data(totim=time),
-                            totim=time
-                        )
+            times = self.get_times()
+            for time in times:
+                self.submit_heads(
+                    self.get_submit_heads_url(self._api_url, self._model_id),
+                    self._api_key,
+                    heads=self.get_data(totim=time),
+                    totim=time
+                )
 
     def read_packages(self, packages):
         for package in packages:
@@ -84,7 +73,7 @@ class InowasFlopy:
 
     def read_packages_from_api(self, packages):
         for package in packages:
-            print 'Requesting data of %s-Package from: %s' % (
+            print 'Requesting %s-Package: \r\n%s' % (
                 package, self.get_package_url(self._api_url, self._model_id, package)
             )
 
