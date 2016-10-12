@@ -19,6 +19,9 @@ data/
 .DS_Store
 /composer.phar
 composer.lock
+/optimization/.vscode
+/optimization/__pycashe__
+/optimization/*.bak
 *.pyc
 *.py~
 *.cbc
