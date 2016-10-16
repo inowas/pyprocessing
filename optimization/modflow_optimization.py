@@ -27,7 +27,7 @@ class Modflow_optimization(object):
     def __init__(self, model, package='WEL', stress_period=0,
                  stress_period_start=None, stress_period_end=None,
                  parameters=['row', 'column', 'layer'], rate=10000, mode='steady',
-                 control_layer=-1):
+                 control_layer=3):
 
         try:
             name = model.name
@@ -61,6 +61,8 @@ class Modflow_optimization(object):
         self.model = model #  Flopy model object.
         self.package = package #  Name of the package to be optimized.
         self.stress_period = stress_period #  Index of a stress period
+        self.stress_period_start = stress_period_start
+        self.stress_period_end = stress_period_end
         self.parameters = parameters #  List of parameters names that will be optimized
         self.rate = rate
         self.mode = mode
@@ -68,6 +70,7 @@ class Modflow_optimization(object):
         self.nrow = model.get_package('DIS').nrow
         self.ncol = model.get_package('DIS').ncol
         self.control_layer = control_layer
+        self.reference_head = None
 
     def initialize(self, reference_method='mean'):
         """
@@ -92,12 +95,18 @@ class Modflow_optimization(object):
         report = True
 
         print('Running model...')
-        success, buff = self.model.run_model(silent, pause, report)
-        headsFile = os.path.join(self.model.model_ws, self.model.name)
-        head_file_objects = flopy.utils.HeadFile(headsFile +'.hds')
+        self.model.run_model(silent, pause, report)
+        head_file_name = os.path.join(self.model.model_ws, self.model.name)
+        head_file_objects = flopy.utils.HeadFile(head_file_name +'.hds')
 
-        heads_timestep = head_file_objects.get_data(kstpkper=(0, 0))[self.control_layer]
-        print(heads_timestep)
+        if self.mode == 'steady':
+            heads_timestep = head_file_objects.get_data(kstpkper=(0, 0))[self.control_layer]
+        else:
+            heads_timestep = head_file_objects.get_alldata(mflay=self.control_layer, nodata=-9999)
+            heads_timestep = np.mean(heads_timestep, axis=0)
+
+        head_file_objects.close()
+
         self.reference_head = heads_timestep
 
     def optimize_model(self, ngen=30, cxpb=0.5, mutpb=0.1, pop_size=15):
@@ -106,24 +115,16 @@ class Modflow_optimization(object):
         """
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
         creator.create("Individual", list, fitness=creator.FitnessMax)
-
         toolbox = base.Toolbox()
-
         toolbox.register("candidate", self.generate_candidate,
                          [self.nlay, self.nrow, self.ncol])
-
         toolbox.register("individual", tools.initIterate,
                          creator.Individual, toolbox.candidate)
-
         toolbox.register("population", tools.initRepeat,
                          list, toolbox.individual)
-
         toolbox.register("mate", tools.cxOnePoint)
-
         toolbox.register("evaluate", self.evaluate)
-
         toolbox.register("mutate", self.mutate)
-
         toolbox.register("select", tools.selTournament, tournsize=3)
 
         pop = toolbox.population(n=pop_size)
@@ -135,21 +136,22 @@ class Modflow_optimization(object):
         stats.register("std", np.std, axis=0)
         stats.register("min", np.min, axis=0)
         stats.register("max", np.max, axis=0)
-        self.result, self.log = algorithms.eaSimple(pop, toolbox,
-                                          cxpb=cxpb, mutpb=mutpb,
-                                          ngen=ngen, stats=stats,
-                                          halloffame=self.hallOfFame, verbose=False)
+        self.result, self.log = algorithms.eaSimple(
+            pop, toolbox,
+            cxpb=cxpb, mutpb=mutpb,
+            ngen=ngen, stats=stats,
+            halloffame=self.hallOfFame, verbose=False
+            )
         return self.hallOfFame
-
 
 
     def generate_candidate(self, ranges):
         """
         Generate initial individual
         """
-        candidate = [random.randint(0,ranges[0]-1),
-                     random.randint(0,ranges[1]-1),
-                     random.randint(0,ranges[2]-1),
+        candidate = [random.randint(0, ranges[0]-1),
+                     random.randint(0, ranges[1]-1),
+                     random.randint(0, ranges[2]-1),
                      self.rate]
 
         return candidate
@@ -183,10 +185,10 @@ class Modflow_optimization(object):
                 spd = np.append(spd, np.array([tuple_ind],
                                               dtype=spd.dtype)).view(np.recarray)
 
-                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data = {0:spd})
+                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data={0:spd})
                 wel_new.write_file()
             else:
-                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data = {0:[individual]})
+                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data={0:[individual]})
                 wel_new.write_file()
 
         silent = True
