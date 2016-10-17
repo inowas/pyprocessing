@@ -24,10 +24,10 @@ class Modflow_optimization(object):
     valid_optimization_packages = ['WEL', 'LAK']
     valid_optimization_parameters = ['row', 'column', 'layer', 'rate', 'stage']
 
-    def __init__(self, model, package='WEL', stress_period=0,
+    def __init__(self, model, package='WEL', stress_period=None,
                  stress_period_start=None, stress_period_end=None,
-                 parameters=['row', 'column', 'layer'], rate=10000, mode='steady',
-                 control_layer=3):
+                 parameters=['row', 'column', 'layer'], rate=None, mode=None,
+                 control_layer=None):
 
         try:
             name = model.name
@@ -113,6 +113,7 @@ class Modflow_optimization(object):
         """
         DEAP Optimization
         """
+        print('OPTIMIZATION STARTED')
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
         creator.create("Individual", list, fitness=creator.FitnessMax)
         toolbox = base.Toolbox()
@@ -153,6 +154,7 @@ class Modflow_optimization(object):
                      random.randint(0, ranges[1]-1),
                      random.randint(0, ranges[2]-1),
                      self.rate]
+        print(' '.join(['FIRST CANDIDATE WELL: ', str(candidate)]))
 
         return candidate
 
@@ -182,6 +184,7 @@ class Modflow_optimization(object):
             if 'WEL' in self.model.get_package_list():
                 wel = self.model.get_package('WEL')
                 spd = wel.stress_period_data.data[0][:-1]
+                print(spd)
                 spd = np.append(spd, np.array([tuple_ind],
                                               dtype=spd.dtype)).view(np.recarray)
 

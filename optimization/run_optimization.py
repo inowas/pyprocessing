@@ -9,7 +9,7 @@ import sys
 import flopy
 import modflow_optimization
 
-# usage: python run_optimization.py C:\data ed2385c3-06f8-434e-8059-22d893fdcbcb.nam 0 10000 15 30
+# usage: python run_optimization.py .\test_model tutorial2.nam 0 10000 1 1
 
 workspace = sys.argv[1]
 namFile = sys.argv[2]
@@ -41,8 +41,23 @@ model = flopy.modflow.Modflow.load(f=namFile,
                                    model_ws=workspace)
 MO = modflow_optimization.Modflow_optimization(model=model,
                                                stress_period=stressPeriod,
-                                               rate=pumpingRate)
+                                               rate=pumpingRate,
+                                               stress_period_start=0,
+                                               stress_period_end=2,
+                                               mode='transient',
+                                               control_layer = 0)
 MO.initialize()
 hall_of_fame = MO.optimize_model(ngen=numberOfGenerations,
                                  pop_size=populationSize)
-print(hall_of_fame)
+# print(hall_of_fame)
+
+import matplotlib.pyplot as plt
+import flopy.utils.binaryfile as bf
+
+
+headobj = bf.HeadFile('test_model\\tutorial2'+'.hds')
+times = headobj.get_times()
+head = headobj.get_data(totim=150)
+# print(head)
+plt.imshow(head[0])
+plt.show()

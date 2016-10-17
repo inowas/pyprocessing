@@ -21,6 +21,7 @@ data/
 composer.lock
 /optimization/.vscode
 /optimization/__pycashe__
+/optimization/test_model
 /optimization/*.bak
 *.pyc
 *.py~

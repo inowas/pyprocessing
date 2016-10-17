@@ -1,5 +1,6 @@
 
 import flopy
+import numpy as np
 
 def drop_iface(rec):
     """
@@ -24,7 +25,9 @@ def prepare_packages_transient(model_object, stress_period_start, stress_period_
                             'GHB': flopy.modflow.ModflowGhb}
 
     print('Reading stress-period-data of the given model object...')
-    print('Writing new packages for a single stress period...')
+    print(' '.join(['Writing new packages for stress periods ',
+                    str(stress_period_start), ':',
+                    str(stress_period_end)]))
 
     for package_name in model_object.get_package_list():
         if package_name in modflow_spd_packages:
@@ -32,8 +35,10 @@ def prepare_packages_transient(model_object, stress_period_start, stress_period_
             spd = {k:v for
                    k, v in package.stress_period_data.data.items()
                    if k >= stress_period_start and k <= stress_period_end}
+
             if 'iface' in spd[stress_period_start].dtype.names:
                 spd = {k:drop_iface(v) for k, v in spd}
+
             modflow_spd_packages[package_name] = modflow_spd_packages[package_name](
                 model_object,
                 stress_period_data=spd
@@ -42,21 +47,21 @@ def prepare_packages_transient(model_object, stress_period_start, stress_period_
         if package_name == 'DIS':
             dis = model_object.get_package(package_name)
             perlen = dis.perlen.array[stress_period_start:stress_period_end + 1]
-            print(perlen)
-            print(type(perlen))
-            # print(shape(perlen))
+            nstp = dis.nstp.array[stress_period_start:stress_period_end + 1]
+            steady = dis.steady.array[stress_period_start:stress_period_end + 1]
+            nper = dis.nper
             delc = dis.delc.array
             delr = dis.delr.array
             nlay = dis.nlay
             nrow = dis.nrow
             ncol = dis.ncol
-            steady = [False] * (stress_period_end - stress_period_start + 1)
             top = dis.top.array
             botm = dis.botm.array
             laycbd = dis.laycbd.array
             dis_new = flopy.modflow.ModflowDis(model_object, nlay=nlay, nrow=nrow, ncol=ncol,
                                                delr=delr, delc=delc, top=top, steady=steady,
-                                               botm=botm, laycbd=laycbd, perlen=perlen)
+                                               botm=botm, laycbd=laycbd, perlen=perlen, nstp=nstp,
+                                               nper=nper)
 
     return model_object
 
