@@ -7,6 +7,7 @@ from deap import creator
 from deap import tools
 from deap import algorithms
 import spd_conversion
+from ghost_well import GhostWell
 
 
 """
@@ -16,7 +17,8 @@ Position of an injection well (lay, row, col) is beeing optimized.
 Objecive function - maximize storage increase with respect to reference situation.
 """
 
-class Modflow_optimization(object):
+
+class ModflowOptimization(object):
     """
     Modflow optimization class
     """
@@ -26,8 +28,8 @@ class Modflow_optimization(object):
 
     def __init__(self, model, package='WEL', stress_period=None,
                  stress_period_start=None, stress_period_end=None,
-                 parameters=['row', 'column', 'layer'], rate=None, mode=None,
-                 control_layer=None):
+                 parameters=('row', 'column', 'layer'), rates=None, mode=None,
+                 control_layer=None, ghost_wells=None):
 
         try:
             name = model.name
@@ -58,21 +60,25 @@ class Modflow_optimization(object):
             print('Given stress period index is not within the Models nstp range')
             return
 
-        self.model = model #  Flopy model object.
-        self.package = package #  Name of the package to be optimized.
-        self.stress_period = stress_period #  Index of a stress period
+        self.model = model  # Flopy model object.
+        self.package = package  # Name of the package to be optimized.
+        self.stress_period = stress_period  # Index of a stress period
         self.stress_period_start = stress_period_start
         self.stress_period_end = stress_period_end
-        self.parameters = parameters #  List of parameters names that will be optimized
-        self.rate = rate
+        self.parameters = parameters  # List of parameters names that will be optimized
+        self.rates = rates
         self.mode = mode
         self.nlay = model.get_package('DIS').nlay
         self.nrow = model.get_package('DIS').nrow
         self.ncol = model.get_package('DIS').ncol
         self.control_layer = control_layer
         self.reference_head = None
+        self.hall_of_fame = None
+        self.result = None
+        self.log = None
+        self.ghost_wells = [GhostWell(), for i in ghost_wells]
 
-    def initialize(self, reference_method='mean'):
+    def initialize(self):
         """
         Initial model run. Reference situation.The lxyq tuple of lay,row,col,rate.
         """
@@ -86,7 +92,6 @@ class Modflow_optimization(object):
         else:
             print('Invalid stress period mode. Exit simulation')
 
-
         print('Writing new model input files...')
         self.model.write_input()
 
@@ -97,7 +102,7 @@ class Modflow_optimization(object):
         print('Running model...')
         self.model.run_model(silent, pause, report)
         head_file_name = os.path.join(self.model.model_ws, self.model.name)
-        head_file_objects = flopy.utils.HeadFile(head_file_name +'.hds')
+        head_file_objects = flopy.utils.HeadFile(head_file_name + '.hds')
 
         if self.mode == 'steady':
             heads_timestep = head_file_objects.get_data(kstpkper=(0, 0))[self.control_layer]
@@ -130,7 +135,7 @@ class Modflow_optimization(object):
 
         pop = toolbox.population(n=pop_size)
 
-        self.hallOfFame = tools.HallOfFame(maxsize=100)
+        self.hall_of_fame = tools.HallOfFame(maxsize=100)
 
         stats = tools.Statistics(lambda ind: ind.fitness.values)
         stats.register("mean", np.mean, axis=0)
@@ -141,10 +146,9 @@ class Modflow_optimization(object):
             pop, toolbox,
             cxpb=cxpb, mutpb=mutpb,
             ngen=ngen, stats=stats,
-            halloffame=self.hallOfFame, verbose=False
+            halloffame=self.hall_of_fame, verbose=False
             )
-        return self.hallOfFame
-
+        return self.hall_of_fame
 
     def generate_candidate(self, ranges):
         """
@@ -162,17 +166,17 @@ class Modflow_optimization(object):
         """
 
         """
-        random_num = random.randint(-1,1)
-        nxtLay = individual[0] + random_num if individual[0] + random_num <= self.nlay-1 else 0
-        individual[0] = nxtLay
+        random_num = random.randint(-1, 1)
+        nxt_lay = individual[0] + random_num if individual[0] + random_num <= self.nlay-1 else 0
+        individual[0] = nxt_lay
 
-        random_num = random.randint(-1,1)
-        nxtRow = individual[1] + random_num if individual[1] + random_num <= self.nrow-1 else 0
-        individual[1] = nxtRow
+        random_num = random.randint(-1, 1)
+        nxt_row = individual[1] + random_num if individual[1] + random_num <= self.nrow-1 else 0
+        individual[1] = nxt_row
 
-        random_num = random.randint(-1,1)
-        nxtCol = individual[2] + random_num if individual[2] + random_num <= self.ncol-1 else 0
-        individual[2] = nxtCol
+        random_num = random.randint(-1, 1)
+        nxt_col = individual[2] + random_num if individual[2] + random_num <= self.ncol-1 else 0
+        individual[2] = nxt_col
 
         return individual,
 
@@ -183,15 +187,21 @@ class Modflow_optimization(object):
         if self.package == 'WEL':
             if 'WEL' in self.model.get_package_list():
                 wel = self.model.get_package('WEL')
+                spd = wel.stress_period_data.data
+
+                for idx, well in enumerate(self.ghost_wells):
+                    spd = well.append_to_spd(data, spd, idx)
+
+                print(wel.stress_period_data.data)
                 spd = wel.stress_period_data.data[0][:-1]
-                print(spd)
+
                 spd = np.append(spd, np.array([tuple_ind],
                                               dtype=spd.dtype)).view(np.recarray)
-
-                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data={0:spd})
+                print(spd)
+                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data={0: spd})
                 wel_new.write_file()
             else:
-                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data={0:[individual]})
+                wel_new = flopy.modflow.ModflowWel(self.model, stress_period_data={0: [individual]})
                 wel_new.write_file()
 
         silent = True
@@ -200,12 +210,9 @@ class Modflow_optimization(object):
 
         success, buff = self.model.run_model(silent, pause, report)
 
-
-
         try:
             head_file_objects = flopy.utils.HeadFile(os.path.join(self.model.model_ws,
-                                                                  self.model.name +'.hds'))
-
+                                                                  self.model.name + '.hds'))
             heads_timestep = head_file_objects.get_data(kstpkper=(0, 0))[-1]
             fitness = np.mean(heads_timestep - self.reference_head),
         except:
@@ -214,8 +221,10 @@ class Modflow_optimization(object):
         return fitness
 
 # if __name__ == __main__:
-#   m = flopy.modflow.Modflow.load(model_ws='C:\\Users\\Notebook\\Documents\\GitHub\\pyprocessing\\modflow\\Modflow_exercise',
-#                               f='Modflow_exercise.nam')
+#   m = flopy.modflow.Modflow.load(
+        # model_ws='C:\\Users\\Notebook\\Documents\\GitHub\\pyprocessing\\modflow\\Modflow_exercise',
+        # f='Modflow_exercise.nam'
+        # )
 #   MO=Modflow_optimization(m)
 #   MO.optimize_model()
 #        import matplotlib.pyplot as plt

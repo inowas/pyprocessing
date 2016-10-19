@@ -1,21 +1,22 @@
 
 import flopy
-import numpy as np
+
 
 def drop_iface(rec):
     """
     Removes 'iface' column from stress period data recarray
     """
     index = rec.dtype.names.index('iface')
-    lis = rec.tolist()
-    for row, i in enumerate(lis):
-        lis[row] = list(i)
-        del lis[row][index]
-        return lis
+    list_ = rec.tolist()
+    for row, i in enumerate(list_):
+        list_[row] = list(i)
+        del list_[row][index]
+        return list_
+
 
 def prepare_packages_transient(model_object, stress_period_start, stress_period_end):
     """
-    Rewrites models packages to single transient stress_period
+    Rewrites models spd packages to start/end transient stress_periods
     """
 
     modflow_spd_packages = {'WEL': flopy.modflow.ModflowWel,
@@ -31,13 +32,15 @@ def prepare_packages_transient(model_object, stress_period_start, stress_period_
 
     for package_name in model_object.get_package_list():
         if package_name in modflow_spd_packages:
+            print('Preparing SPD for ' + package_name + ' package')
             package = model_object.get_package(package_name)
-            spd = {k:v for
+            spd = {k: v for
                    k, v in package.stress_period_data.data.items()
-                   if k >= stress_period_start and k <= stress_period_end}
+                   if stress_period_start <= k <= stress_period_end}
 
             if 'iface' in spd[stress_period_start].dtype.names:
-                spd = {k:drop_iface(v) for k, v in spd}
+                print('Removing IFACE from ' + package_name + ' package SPD')
+                spd = {k: drop_iface(v) for k, v in spd}
 
             modflow_spd_packages[package_name] = modflow_spd_packages[package_name](
                 model_object,
@@ -45,6 +48,7 @@ def prepare_packages_transient(model_object, stress_period_start, stress_period_
                 )
 
         if package_name == 'DIS':
+            print('Preparing DIS package')
             dis = model_object.get_package(package_name)
             perlen = dis.perlen.array[stress_period_start:stress_period_end + 1]
             nstp = dis.nstp.array[stress_period_start:stress_period_end + 1]
@@ -88,7 +92,7 @@ def prepare_packages_steady(model_object, stress_period):
                 spd = drop_iface(spd)
             modflow_spd_packages[package_name] = modflow_spd_packages[package_name](
                 model_object,
-                stress_period_data={0:spd}
+                stress_period_data={0: spd}
                 )
 
         if package_name == 'DIS':
