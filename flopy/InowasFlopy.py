@@ -4,8 +4,8 @@ import demjson
 import flopy.modflow as mf
 import flopy.utils as fu
 import os
-import urllib
-import urllib2
+import urllib.request
+import urllib.parse
 
 
 class InowasFlopy:
@@ -36,7 +36,7 @@ class InowasFlopy:
         self._api_key = api_key
         self._model_id = model_id
 
-        print 'Requesting cmd-Package: \r\n%s' % self.get_packages_url(self._api_url, self._model_id)
+        print('Requesting cmd-Package: \r\n%s' % self.get_packages_url(self._api_url, self._model_id))
         self._commands = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
 
         if self._commands['load_from'] == 'api':
@@ -54,7 +54,7 @@ class InowasFlopy:
             self.check_model()
 
         if self._commands['run']:
-            print self._commands
+            print(self._commands)
             self.run_model()
 
         if self._commands['submit']:
@@ -73,9 +73,9 @@ class InowasFlopy:
 
     def read_packages_from_api(self, packages):
         for package in packages:
-            print 'Requesting %s-Package: \r\n%s' % (
+            print('Requesting %s-Package: \r\n%s' % (
                 package, self.get_package_url(self._api_url, self._model_id, package)
-            )
+            ))
 
             self._packageContent[package] = self.read_json_from_api(
                 self.get_package_url(self._api_url, self._model_id, package),
@@ -84,15 +84,15 @@ class InowasFlopy:
 
     def create_model(self, packages, package_content):
         for package in packages:
-            print 'Create Flopy Package: %s' % package
+            print('Create Flopy Package: %s' % package)
             self.create_package(package, package_content[package])
 
     def write_input_model(self):
-        print 'Write input files'
+        print('Write input files')
         self._mf.write_input()
 
     def run_model(self):
-        print 'Run the model'
+        print('Run the model')
         self._mf.run_model()
 
     def load_model(self):
@@ -108,7 +108,7 @@ class InowasFlopy:
             workspace,
             self._packageContent['mf']['modelname'] + '.nam')
 
-        print 'Load model from %s' % nam_file
+        print('Load model from %s' % nam_file)
         self._mf = mf.Modflow.load(
             nam_file,
             version=self._packageContent['mf']['version'],
@@ -332,19 +332,20 @@ class InowasFlopy:
 
     @staticmethod
     def read_json_from_api(url, api_key):
-        request = urllib2.Request(url)
+        request = urllib.request.Request(url)
+
         request.add_header('X-AUTH-TOKEN', api_key)
-        response = urllib2.urlopen(request)
+        response = urllib.request.urlopen(request)
         return demjson.decode(response.read())
 
     @staticmethod
     def submit_heads(url, api_key, heads, totim):
-        print 'Post head-data of totim=%s to %s' % (totim, url)
-        request = urllib2.Request(url)
-        request.data = urllib.urlencode({'heads': demjson.encode(heads.tolist()), 'totim': totim})
+        print('Post head-data of totim=%s to %s' % (totim, url))
+        request = urllib.request.Request(url)
+        request.data = urllib.parse.urlencode({'heads': demjson.encode(heads.tolist()), 'totim': totim})
         request.add_header('X-AUTH-TOKEN', api_key)
-        response = urllib2.urlopen(request)
-        print response.read()
+        response = urllib.request.urlopen(request)
+        print(response.read())
 
     @staticmethod
     def get_packages_url(api_url, model_id):
