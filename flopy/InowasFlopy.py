@@ -1,5 +1,6 @@
 #! /usr/env python
 
+import json
 import demjson
 import flopy.modflow as mf
 import flopy.utils as fu
@@ -11,6 +12,9 @@ import urllib.parse
 class InowasFlopy:
     """The Flopy Class"""
 
+    _calculation_url = ""
+    _model_url = ""
+    _submit_heads_url = ""
     _input_file = ""
     _api_key = ""
     _api_url = ""
@@ -30,22 +34,22 @@ class InowasFlopy:
         self.read_packages(self._packages)
         self.create_model(self._packages, self._packageContent)
 
-    def from_webapi(self, api_url, data_folder, model_id, api_key):
-        self._api_url = api_url
+    def from_webapi(self, data_folder, calculation_url, model_url, submit_heads_url, api_key):
         self._data_folder = data_folder
+        self._calculation_url = calculation_url
+        self._model_url = model_url
+        self._submit_heads_url = submit_heads_url
         self._api_key = api_key
-        self._model_id = model_id
 
         print('Requesting cmd-Package: \r\n%s' % self.get_packages_url(self._api_url, self._model_id))
-        self._commands = self.read_json_from_api(self.get_packages_url(self._api_url, self._model_id), api_key)
+        self._commands = self.read_json_from_api(self._calculation_url, api_key)
 
-        if self._commands['load_from'] == 'api':
-            self._packages = self._commands['packages']
-            self.read_packages_from_api(self._packages)
-            self.create_model(self._packages, self._packageContent)
+        self._packages = self._commands['packages']
+        self.read_packages_from_api(self._packages)
+        self.create_model(self._packages, self._packageContent)
 
-            if self._commands['write_input']:
-                self.write_input_model()
+        if self._commands['write_input']:
+            self.write_input_model()
 
         if self._commands['load_from'] == 'nam':
             self.load_model()
@@ -61,7 +65,7 @@ class InowasFlopy:
             times = self.get_times()
             for time in times:
                 self.submit_heads(
-                    self.get_submit_heads_url(self._api_url, self._model_id),
+                    self._submit_heads_url,
                     self._api_key,
                     heads=self.get_data(totim=time),
                     totim=time
@@ -74,13 +78,15 @@ class InowasFlopy:
     def read_packages_from_api(self, packages):
         for package in packages:
             print('Requesting %s-Package: \r\n%s' % (
-                package, self.get_package_url(self._api_url, self._model_id, package)
+                package, self.get_package_url(self._model_url, package)
             ))
 
             self._packageContent[package] = self.read_json_from_api(
-                self.get_package_url(self._api_url, self._model_id, package),
+                self.get_package_url(self._model_url, package),
                 self._api_key
             )
+
+            print(self._packageContent[package])
 
     def create_model(self, packages, package_content):
         for package in packages:
@@ -274,7 +280,7 @@ class InowasFlopy:
                 extension=content['extension'],
                 unitnumber=content['unitnumber']
             )
-        if name == 'riv':
+        if name == 'risdlkfjlv':
             mf.ModflowRiv(
                 self._mf,
                 ipakcb=content['ipakcb'],
@@ -341,11 +347,13 @@ class InowasFlopy:
     @staticmethod
     def submit_heads(url, api_key, heads, totim):
         print('Post head-data of totim=%s to %s' % (totim, url))
-        request = urllib.request.Request(url)
-        request.data = urllib.parse.urlencode({'heads': demjson.encode(heads.tolist()), 'totim': totim})
-        request.add_header('X-AUTH-TOKEN', api_key)
-        response = urllib.request.urlopen(request)
-        print(response.read())
+        values = {'heads': json.dumps(heads.tolist()), 'totim': totim}
+        data = urllib.parse.urlencode(values)
+        data = data.encode('utf-8')
+        req = urllib.request.Request(url, data)
+        resp = urllib.request.urlopen(req)
+        respData = resp.read()
+        print(respData)
 
     @staticmethod
     def get_packages_url(api_url, model_id):
@@ -353,8 +361,8 @@ class InowasFlopy:
         return url
 
     @staticmethod
-    def get_package_url(api_url, model_id, package):
-        url = '%s/modflowmodels/%s/packages/%s.json' % (api_url, model_id, package)
+    def get_package_url(model_url, package):
+        url = model_url.replace("packageName", package)
         return url
 
     @staticmethod

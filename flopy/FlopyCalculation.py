@@ -5,9 +5,11 @@ import sys
 
 fp = InowasFlopy.InowasFlopy()
 
-api_url = sys.argv[1]
-data_folder = sys.argv[2]
-model_id = sys.argv[3]
-api_key = sys.argv[4]
 
-fp.from_webapi(api_url, data_folder, model_id, api_key)
+data_folder = sys.argv[1]
+calculation_url = sys.argv[2]
+model_url = sys.argv[3]
+submit_heads_url = sys.argv[4]
+api_key = sys.argv[5]
+
+fp.from_webapi(data_folder, calculation_url, model_url, submit_heads_url, api_key)
