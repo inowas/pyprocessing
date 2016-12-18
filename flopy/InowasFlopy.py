@@ -86,8 +86,6 @@ class InowasFlopy:
                 self._api_key
             )
 
-            print(self._packageContent[package])
-
     def create_model(self, packages, package_content):
         for package in packages:
             print('Create Flopy Package: %s' % package)
